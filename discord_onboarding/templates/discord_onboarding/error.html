@@ -1,0 +1,25 @@
+{% extends "discord_onboarding/base.html" %}
+
+{% block title %}{{ error_title|default:"Authentication Error" }}{% endblock %}
+
+{% block content %}
+<div class="error">
+    <h2>❌ {{ error_title|default:"Authentication Error" }}</h2>
+    <p>{{ error_message|default:"An error occurred during authentication." }}</p>
+</div>
+
+<h1>Unable to Complete Authentication</h1>
+
+<div class="message">
+    <p>Don't worry! Here's what you can do:</p>
+    <ul style="text-align: left; display: inline-block;">
+        <li>Return to Discord and use the <code>/auth</code> command to get a new authentication link</li>
+        <li>Make sure you're clicking on a recent authentication link (they expire after 24 hours)</li>
+        <li>Contact a server administrator if you continue having issues</li>
+    </ul>
+</div>
+
+<p>
+    <a href="#" onclick="window.close(); return false;" class="btn">Close Window</a>
+</p>
+{% endblock %}

@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aa-discord-onboarding"
+version = "1.0.0"
+authors = [
+    {name = "Eve Balsa", email = "eve@balsa.info"},
+]
+description = "Discord onboarding plugin for Alliance Auth with EVE Online integration"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Framework :: Django",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Communications :: Chat",
+]
+dependencies = [
+    "allianceauth>=3.0.0",
+    "django>=4.0",
+    "celery>=5.0",
+    "discord.py>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-django", 
+    "black",
+    "flake8",
+]
+
+[project.urls]
+Homepage = "https://github.com/jetbalsa/aa-discord-onboarding"
+Repository = "https://github.com/jetbalsa/aa-discord-onboarding"
+Issues = "https://github.com/jetbalsa/aa-discord-onboarding/issues"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["tests*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "discord_onboarding.tests.settings"
+python_files = ["test_*.py", "*_test.py"]
+addopts = "--tb=short"

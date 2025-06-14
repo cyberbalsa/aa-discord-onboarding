@@ -1,0 +1,28 @@
+{% extends "discord_onboarding/base.html" %}
+
+{% block title %}Authentication Successful{% endblock %}
+
+{% block content %}
+<div class="success">
+    <h2>🎉 Authentication Successful!</h2>
+    <p>Your Discord account has been successfully linked to your EVE Online character.</p>
+</div>
+
+<h1>Welcome aboard, {{ character_name }}!</h1>
+
+<div class="character-info">
+    <h3>Character Information</h3>
+    <p><strong>Character:</strong> {{ character_name }}</p>
+    <p><strong>Corporation:</strong> {{ corporation_name }}</p>
+    {% if alliance_name %}
+    <p><strong>Alliance:</strong> {{ alliance_name }}</p>
+    {% endif %}
+</div>
+
+<div class="message">
+    <p>You now have access to all authenticated channels and features on our Discord server. 
+       Your roles and permissions will be updated automatically.</p>
+    
+    <p>You can now safely close this window and return to Discord.</p>
+</div>
+{% endblock %}

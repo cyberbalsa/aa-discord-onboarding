@@ -1,0 +1,155 @@
+{% extends "allianceauth/base.html" %}
+
+{% block title %}Discord Onboarding{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h1><i class="fas fa-users"></i> Discord Onboarding</h1>
+            <p class="lead">Manage Discord authentication and onboarding for new members.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    <h3 class="panel-title"><i class="fas fa-user"></i> Your Discord Status</h3>
+                </div>
+                <div class="panel-body">
+                    {% if user_discord_linked %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> 
+                            <strong>Connected!</strong> Your Discord account is linked to Alliance Auth.
+                        </div>
+                        <p><strong>Discord ID:</strong> {{ user_discord_id }}</p>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            <strong>Not Connected</strong> Your Discord account is not linked.
+                        </div>
+                        <p>To link your Discord account, join our Discord server and use the <code>/auth</code> command.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <h3 class="panel-title"><i class="fas fa-chart-line"></i> Recent Statistics</h3>
+                </div>
+                <div class="panel-body">
+                    {% if recent_stats %}
+                        <div class="table-responsive">
+                            <table class="table table-condensed">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>New Members</th>
+                                        <th>Auth Requests</th>
+                                        <th>Completed</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for stat in recent_stats %}
+                                    <tr>
+                                        <td>{{ stat.date }}</td>
+                                        <td>{{ stat.new_discord_members }}</td>
+                                        <td>{{ stat.auth_requests_created }}</td>
+                                        <td>{{ stat.auth_requests_completed }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No statistics available yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title"><i class="fas fa-list"></i> Recent Authentication Requests</h3>
+                </div>
+                <div class="panel-body">
+                    {% if recent_requests %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Discord User ID</th>
+                                        <th>Created</th>
+                                        <th>Status</th>
+                                        <th>Character</th>
+                                        <th>Expires</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for request in recent_requests %}
+                                    <tr>
+                                        <td>{{ request.discord_user_id }}</td>
+                                        <td>{{ request.created_at|date:"M d, Y H:i" }}</td>
+                                        <td>
+                                            {% if request.completed %}
+                                                <span class="label label-success">Completed</span>
+                                            {% elif request.is_expired %}
+                                                <span class="label label-danger">Expired</span>
+                                            {% else %}
+                                                <span class="label label-warning">Pending</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if request.eve_character %}
+                                                {{ request.eve_character.character_name }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ request.expires_at|date:"M d, Y H:i" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No authentication requests found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title"><i class="fas fa-info-circle"></i> How It Works</h3>
+                </div>
+                <div class="panel-body">
+                    <ol>
+                        <li><strong>User joins Discord</strong> - The bot automatically detects new members</li>
+                        <li><strong>Welcome DM sent</strong> - Bot sends a private message with authentication link</li>
+                        <li><strong>EVE SSO authentication</strong> - User clicks link and authenticates with EVE Online</li>
+                        <li><strong>Account linking</strong> - Discord account is automatically linked to EVE character</li>
+                        <li><strong>Role assignment</strong> - User gets appropriate roles and access</li>
+                    </ol>
+                    
+                    <h4>Discord Commands</h4>
+                    <ul>
+                        <li><code>/auth</code> - Generate authentication link for yourself</li>
+                        <li><code>/auth @user</code> - Admin command to generate link for another user</li>
+                        <li><code>/auth-status</code> - Check your authentication status</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
