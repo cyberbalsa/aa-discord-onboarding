@@ -36,7 +36,7 @@ classifiers = [
 ]
 dependencies = [
     "allianceauth>=3.0.0",
-    "aa-discordbot>=2.0.0",
+    "allianceauth-discordbot>=4.0.0",
     "django>=4.0",
     "django-esi>=4.0.0",
 ]
