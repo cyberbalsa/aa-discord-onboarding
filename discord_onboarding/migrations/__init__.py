@@ -1,1 +1,1 @@
-# Django migrations
+# Django migrations module

@@ -1,62 +1,86 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
 
 [project]
 name = "aa-discord-onboarding"
 version = "1.0.0"
-authors = [
-    {name = "Eve Balsa", email = "eve@balsa.info"},
-]
-description = "Discord onboarding plugin for Alliance Auth with EVE Online integration"
+description = "Discord onboarding plugin for Alliance Auth that streamlines EVE Online SSO integration"
 readme = "README.md"
-license = "MIT"
+license = {file = "LICENSE"}
 requires-python = ">=3.8"
+authors = [
+    { name = "Jet Balsa", email = "cyber@balsa.info" },
+]
+keywords = ["allianceauth", "discord", "eve online", "sso", "onboarding"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 4.2",
     "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Framework :: Django",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Games/Entertainment",
     "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     "Topic :: Communications :: Chat",
 ]
 dependencies = [
     "allianceauth>=3.0.0",
+    "aa-discordbot>=2.0.0",
     "django>=4.0",
-    "celery>=5.0",
-    "discord.py>=2.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-django", 
-    "black",
-    "flake8",
+    "django-esi>=4.0.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/jetbalsa/aa-discord-onboarding"
-Repository = "https://github.com/jetbalsa/aa-discord-onboarding"
-Issues = "https://github.com/jetbalsa/aa-discord-onboarding/issues"
+Homepage = "https://github.com/cyberbalsa/aa-discord-onboarding"
+Documentation = "https://github.com/cyberbalsa/aa-discord-onboarding/blob/main/README.md"
+Repository = "https://github.com/cyberbalsa/aa-discord-onboarding"
+"Bug Tracker" = "https://github.com/cyberbalsa/aa-discord-onboarding/issues"
+Changelog = "https://github.com/cyberbalsa/aa-discord-onboarding/blob/main/CHANGELOG.md"
 
-[tool.setuptools]
-include-package-data = true
+[tool.flit.module]
+name = "discord_onboarding"
 
-[tool.setuptools.packages.find]
-exclude = ["tests*"]
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "THIRDPARTY",
+    "DJANGO",
+    "ALLIANCEAUTH",
+    "FIRSTPARTY",
+    "LOCALFOLDER"
+]
+known_allianceauth = ["allianceauth", "app_utils"]
+known_django = ["django", "django_webtest", "esi", "eveuniverse"]
 
-[tool.black]
-line-length = 88
-target-version = ['py38']
+[tool.pylint.'MASTER']
+ignore-patterns = ["__init__.py", "auth_hooks.py", "apps.py", "admin.py"]
+ignore-paths = ["^.*/tests/.*$", "^.*/migrations/.*$"]
 
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "discord_onboarding.tests.settings"
-python_files = ["test_*.py", "*_test.py"]
-addopts = "--tb=short"
+[tool.pylint.'BASIC']
+good-names = ["i", "j", "k", "ex"]
+
+[tool.pylint.'FORMAT']
+max-line-length = 120
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+    "cyclic-import",
+    "fixme",
+    "import-outside-toplevel",
+    "imported-auth-user",
+    "too-few-public-methods",
+]

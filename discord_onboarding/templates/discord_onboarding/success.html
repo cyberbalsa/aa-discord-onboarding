@@ -1,28 +1,38 @@
 {% extends "discord_onboarding/base.html" %}
+{% load i18n %}
 
-{% block title %}Authentication Successful{% endblock %}
-
-{% block content %}
-<div class="success">
-    <h2>🎉 Authentication Successful!</h2>
-    <p>Your Discord account has been successfully linked to your EVE Online character.</p>
+{% block panel_content %}
+<div class="alert alert-success" role="alert">
+    <h4><i class="fas fa-check-circle"></i> {% trans "Discord Account Successfully Linked!" %}</h4>
+    <p>{% trans "Your Discord account has been successfully linked to Alliance Auth." %}</p>
 </div>
 
-<h1>Welcome aboard, {{ character_name }}!</h1>
-
-<div class="character-info">
-    <h3>Character Information</h3>
-    <p><strong>Character:</strong> {{ character_name }}</p>
-    <p><strong>Corporation:</strong> {{ corporation_name }}</p>
-    {% if alliance_name %}
-    <p><strong>Alliance:</strong> {{ alliance_name }}</p>
+<div class="row">
+    <div class="col-md-6">
+        <h5>{% trans "Discord Account" %}</h5>
+        <p><strong>{{ discord_username }}</strong></p>
+    </div>
+    {% if main_character %}
+    <div class="col-md-6">
+        <h5>{% trans "Main Character" %}</h5>
+        <p><strong>{{ main_character }}</strong></p>
+    </div>
     {% endif %}
 </div>
 
-<div class="message">
-    <p>You now have access to all authenticated channels and features on our Discord server. 
-       Your roles and permissions will be updated automatically.</p>
-    
-    <p>You can now safely close this window and return to Discord.</p>
+<div class="alert alert-info" role="alert">
+    <h5>{% trans "What happens next?" %}</h5>
+    <ul class="mb-0">
+        <li>{% trans "Your Discord roles will be updated automatically based on your Alliance Auth permissions" %}</li>
+        <li>{% trans "Your Discord nickname will be set to match your main character name" %}</li>
+        <li>{% trans "You can now access all Discord channels according to your group memberships" %}</li>
+    </ul>
 </div>
-{% endblock %}
+
+<div class="text-center">
+    <a href="/" class="btn btn-primary">
+        <i class="fas fa-home"></i>
+        {% trans "Return to Dashboard" %}
+    </a>
+</div>
+{% endblock panel_content %}

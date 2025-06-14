@@ -1,93 +1,46 @@
+"""Admin interface for Discord Onboarding."""
+
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
-from .models import (
-    DiscordAuthRequest,
-    DiscordOnboardingConfiguration,
-    DiscordOnboardingStats,
-)
+from .models import OnboardingToken
 
 
-@admin.register(DiscordAuthRequest)
-class DiscordAuthRequestAdmin(admin.ModelAdmin):
-    list_display = [
-        "discord_user_id",
-        "token_short",
-        "status",
-        "created_at",
-        "expires_at",
-        "auth_user",
-        "eve_character",
-    ]
-    list_filter = ["completed", "created_at", "expires_at", "requested_by_admin"]
-    search_fields = [
-        "discord_user_id",
-        "token",
-        "auth_user__username",
-        "eve_character__character_name",
-    ]
-    readonly_fields = ["token", "created_at", "completed_at", "is_expired", "is_valid"]
+@admin.register(OnboardingToken)
+class OnboardingTokenAdmin(admin.ModelAdmin):
+    list_display = (
+        'discord_username',
+        'discord_id',
+        'user',
+        'status_display',
+        'created_at',
+        'expires_at'
+    )
+    list_filter = ('used', 'created_at', 'expires_at')
+    search_fields = ('discord_username', 'discord_id', 'user__username', 'token')
+    readonly_fields = ('token', 'created_at', 'expires_at', 'status_display')
+    ordering = ('-created_at',)
 
-    def token_short(self, obj):
-        return str(obj.token)[:8] + "..."
-
-    token_short.short_description = "Token"
-
-    def status(self, obj):
-        if obj.completed:
-            return format_html('<span style="color: green;">✓ Completed</span>')
-        elif obj.is_expired:
-            return format_html('<span style="color: red;">✗ Expired</span>')
+    def status_display(self, obj):
+        if obj.used:
+            return format_html(
+                '<span style="color: green;"><i class="fas fa-check"></i> {}</span>',
+                _('Used')
+            )
+        elif obj.is_expired():
+            return format_html(
+                '<span style="color: red;"><i class="fas fa-times"></i> {}</span>',
+                _('Expired')
+            )
         else:
-            return format_html('<span style="color: orange;">⏳ Pending</span>')
+            return format_html(
+                '<span style="color: orange;"><i class="fas fa-clock"></i> {}</span>',
+                _('Pending')
+            )
 
-    status.short_description = "Status"
-
-
-@admin.register(DiscordOnboardingConfiguration)
-class DiscordOnboardingConfigurationAdmin(admin.ModelAdmin):
-    fieldsets = [
-        (
-            "Welcome Message Settings",
-            {"fields": ("send_welcome_dm", "welcome_message_template")},
-        ),
-        ("Role Assignment", {"fields": ("auto_assign_authenticated_role",)}),
-        ("Admin Settings", {"fields": ("admin_role_ids",)}),
-        ("Rate Limiting", {"fields": ("max_requests_per_user_per_day",)}),
-    ]
+    status_display.short_description = _('Status')
 
     def has_add_permission(self, request):
-        # Only allow one configuration
-        return not DiscordOnboardingConfiguration.objects.exists()
-
-    def has_delete_permission(self, request, obj=None):
-        # Don't allow deletion of the configuration
-        return False
-
-
-@admin.register(DiscordOnboardingStats)
-class DiscordOnboardingStatsAdmin(admin.ModelAdmin):
-    list_display = [
-        "date",
-        "new_discord_members",
-        "auth_requests_created",
-        "auth_requests_completed",
-        "successful_authentications",
-        "completion_rate",
-    ]
-    list_filter = ["date"]
-    readonly_fields = list_display
-
-    def completion_rate(self, obj):
-        if obj.auth_requests_created == 0:
-            return "0%"
-        rate = (obj.auth_requests_completed / obj.auth_requests_created) * 100
-        return f"{rate:.1f}%"
-
-    completion_rate.short_description = "Completion Rate"
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
+        # Tokens should be created by the bot, not manually
         return False

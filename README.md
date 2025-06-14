@@ -1,47 +1,24 @@
-# Discord Onboarding Plugin for Alliance Auth
+# AA Discord Onboarding
 
-A comprehensive Discord onboarding plugin that seamlessly integrates EVE Online authentication with Discord, providing a frictionless user experience for new members.
+A Discord onboarding plugin for Alliance Auth that streamlines the process of linking Discord accounts with EVE Online characters.
 
 ## Features
 
-- **One-Click Authentication**: Users get a unique authentication link via DM when they join Discord
-- **EVE SSO Integration**: Seamless EVE Online Single Sign-On authentication
-- **Admin Tools**: Admins can generate auth links for specific users with `/auth @user`
-- **Rate Limiting**: Configurable rate limits to prevent abuse
-- **Auto-Role Assignment**: Automatic role assignment after successful authentication
-- **Statistics Tracking**: Comprehensive analytics on authentication success rates
-- **Secure Tokens**: Time-limited, unique authentication tokens (24-hour expiry)
-
-## Workflow
-
-1. **User joins Discord** → Bot automatically detects new member
-2. **Bot sends DM** → Unique authentication link sent to user's DMs
-3. **User clicks link** → Redirected to EVE Online SSO authentication
-4. **EVE SSO callback** → Discord ID automatically linked to EVE character
-5. **User authenticated** → Roles assigned, access granted, success notification sent
+- **Automatic Onboarding**: New Discord users receive a DM with an authentication link when they join the server
+- **Simple Workflow**: One-click authentication via EVE SSO - no complex steps for users
+- **Admin Commands**: Admins can send authentication links to specific users
+- **Self-Service**: Users can generate new authentication links with `/auth`
+- **Automatic Integration**: Seamlessly integrates with Alliance Auth's Discord service for role/nickname sync
+- **Security**: Secure token-based authentication with automatic expiration
 
 ## Installation
 
-### Via pip (Recommended)
-
+1. Install the plugin:
 ```bash
 pip install aa-discord-onboarding
 ```
 
-### From source
-
-```bash
-git clone https://github.com/jetbalsa/aa-discord-onboarding.git
-cd aa-discord-onboarding
-pip install .
-```
-
-### Configuration
-
-#### 1. Add to INSTALLED_APPS
-
-Add the plugin to your Alliance Auth `local.py`:
-
+2. Add the plugin to your Alliance Auth settings:
 ```python
 INSTALLED_APPS = [
     # ... other apps
@@ -50,193 +27,103 @@ INSTALLED_APPS = [
 ]
 ```
 
-#### 2. Run Migrations
+3. Configure the plugin settings in your `local.py`:
+```python
+# Discord Onboarding Settings
+DISCORD_ONBOARDING_BASE_URL = 'https://your-auth-site.com'  # Your Alliance Auth URL
+DISCORD_ONBOARDING_TOKEN_EXPIRY = 3600  # Token expiry in seconds (default: 1 hour)
+DISCORD_ONBOARDING_ADMIN_ROLES = [123456789, 987654321]  # Discord role IDs that can use admin commands
+```
 
+4. Run migrations:
 ```bash
 python manage.py migrate discord_onboarding
 ```
 
-#### 3. Configure Settings (Optional)
+5. Add the Discord cog to your Discord bot by adding it to your bot's installed cogs.
 
-Add these optional settings to your `local.py`:
-
+6. Add the URLs to your main `urls.py`:
 ```python
-# Discord Onboarding Settings
-DISCORD_ONBOARDING_AUTH_EXPIRY_HOURS = 24  # How long auth links are valid
-DISCORD_ONBOARDING_MAX_REQUESTS_PER_DAY = 5  # Rate limiting per user
-DISCORD_ONBOARDING_AUTO_WELCOME = True  # Send welcome DM to new members
-DISCORD_ONBOARDING_AUTO_ASSIGN_ROLE = True  # Auto-assign authenticated role
-DISCORD_ONBOARDING_ADMIN_ROLES = '123456789,987654321'  # Admin role IDs (comma-separated)
-
-# Custom welcome message template
-DISCORD_ONBOARDING_WELCOME_MESSAGE = '''
-Welcome to our Alliance Discord! 🚀
-
-To get full access to all channels and features, please authenticate with EVE Online:
-
-{auth_link}
-
-This secure link expires in 24 hours. If you need help, contact an admin!
-'''
-```
-
-#### 4. Update URL Configuration
-
-Add to your main `urls.py`:
-
-```python
-from django.urls import path, include
-
 urlpatterns = [
-    # ... other URLs
+    # ... existing patterns
     path('discord-onboarding/', include('discord_onboarding.urls')),
-    # ... other URLs
 ]
 ```
 
-#### 5. Restart Services
+## Discord Bot Setup
 
-Restart your Alliance Auth and Discord bot services:
+The plugin includes a Discord cog that needs to be loaded by your Discord bot. If you're using the `aa-discordbot` package, the cog will be automatically discovered.
 
-```bash
-# Restart Alliance Auth
-systemctl restart allianceauth
+### Manual Cog Loading
 
-# Restart Discord Bot
-systemctl restart allianceauth-discordbot
+If you need to manually load the cog:
+
+```python
+# In your bot setup
+bot.load_extension('discord_onboarding.cogs.onboarding')
 ```
-
-## Configuration
-
-### Admin Panel
-
-Access the Django admin panel to configure:
-
-1. **Discord Onboarding Configuration**
-   - Enable/disable welcome DMs
-   - Customize welcome message template
-   - Set admin role IDs
-   - Configure rate limiting
-
-2. **Monitor Statistics**
-   - View daily authentication stats
-   - Track success/failure rates
-   - Monitor new member onboarding
-
-### Discord Permissions
-
-Ensure the bot has these permissions:
-- Send Messages (for DMs)
-- Read Message History
-- Use Slash Commands
-- Manage Roles (for auto-assignment)
 
 ## Usage
 
-### User Commands
+### For End Users
 
-#### `/auth`
-- **Description**: Generate authentication link for yourself
-- **Usage**: `/auth`
-- **Response**: Bot sends authentication link via DM
+1. **Automatic Onboarding**: When a user joins the Discord server, they automatically receive a DM with an authentication link
+2. **Manual Authentication**: Users can use `/auth` in Discord to get a new authentication link
+3. **Click & Authenticate**: Users click the link, authenticate with EVE Online, and their Discord account is automatically linked
 
-#### `/auth @user` (Admin Only)
-- **Description**: Generate authentication link for another user
-- **Usage**: `/auth @username`
-- **Permissions**: Requires admin role or Administrator permission
-- **Response**: Bot sends authentication link to target user's DM
+### For Administrators
 
-#### `/auth-status`
-- **Description**: Check your authentication status
-- **Usage**: `/auth-status`
-- **Response**: Shows current authentication status and character info
+1. **Send Auth Links**: Use `/auth-user @username` to send an authentication link to a specific user
+2. **Monitor Tokens**: View onboarding tokens and their status in the Django admin interface
 
-### Automatic Features
+### Workflow
 
-- **New Member Welcome**: Automatically sends welcome DM with auth link
-- **Rate Limiting**: Prevents spam (5 requests per user per day by default)
-- **Token Security**: Unique, time-limited tokens for each request
-- **Character Updates**: Automatically updates EVE character information
+1. User joins Discord server
+2. Bot sends DM with unique authentication link
+3. User clicks link → redirected to EVE SSO
+4. User authenticates with EVE Online
+5. Discord account automatically linked to Alliance Auth user
+6. User receives appropriate Discord roles and nickname based on Alliance Auth permissions
 
-## Authentication Flow Details
+## Commands
 
-### 1. Token Generation
-```
-Discord User → Bot creates unique UUID token → Stored in database with expiry
-```
+- `/auth` - Get a personal authentication link (ephemeral response)
+- `/auth-user <member>` - Send an authentication link to another user (admin only)
 
-### 2. EVE SSO Authentication
-```
-User clicks link → Alliance Auth EVE SSO → EVE Online authentication → Callback
-```
+## Permissions
 
-### 3. Account Linking
-```
-EVE character verified → User account created/linked → Discord ID associated → Roles assigned
-```
-
-### 4. Success Notification
-```
-Authentication complete → Discord notification sent → User gets full access
-```
+The plugin creates the following permissions:
+- `discord_onboarding.basic_access` - Can access Discord onboarding
+- `discord_onboarding.admin_access` - Can send auth requests to other users
 
 ## Security Features
 
-- **Unique Tokens**: Each authentication request uses a unique UUID
-- **Time Limits**: Tokens expire after 24 hours (configurable)
-- **Rate Limiting**: Prevents abuse with configurable daily limits
-- **Admin Controls**: Restricted admin commands with role-based permissions
-- **Secure Sessions**: Django session management for authentication flow
+- **Token Expiration**: Authentication tokens expire after 1 hour (configurable)
+- **Single Use**: Tokens can only be used once
+- **Secure Generation**: Tokens use cryptographically secure random generation
+- **Admin Validation**: Admin commands require proper role permissions
+- **Session Protection**: Authentication state is protected in user sessions
 
 ## Troubleshooting
 
-### Bot Not Responding to Commands
-- Check bot permissions in Discord server
-- Verify bot is online and connected
-- Check Discord bot logs for errors
+### Common Issues
 
-### Authentication Link Not Working
-- Ensure Alliance Auth is properly configured for EVE SSO
-- Check that URLs are accessible from outside your network
-- Verify SSL certificates are valid
-
-### Users Not Getting DMs
-- Check bot can send DMs (user hasn't blocked bot)
-- Verify bot has "Send Messages" permission
-- Check Discord privacy settings
-
-### Database Issues
-- Run migrations: `python manage.py migrate discord_onboarding`
-- Check database connectivity
-- Verify user permissions
-
-## API Endpoints
-
-- `GET /discord-onboarding/auth/<token>/` - Start authentication
-- `GET /discord-onboarding/callback/<token>/` - EVE SSO callback
-- `GET /discord-onboarding/status/<token>/` - Check auth status (JSON)
-
-## Monitoring
-
-### Admin Panel Statistics
-- Daily authentication requests
-- Success/failure rates
-- New member counts
-- Rate limiting statistics
+1. **DMs Not Sending**: Ensure the bot has permission to send DMs and that users have DMs enabled
+2. **Authentication Fails**: Check that EVE SSO is properly configured in Alliance Auth
+3. **Role Sync Issues**: Verify that the Discord service is properly configured in Alliance Auth
 
 ### Logs
-Monitor these log files:
-- Alliance Auth: Authentication flow logs
-- Discord Bot: Command execution logs
-- Celery: Background task logs
 
-## Support
+The plugin logs important events at the INFO level and errors at the ERROR level. Check your Alliance Auth logs for troubleshooting.
 
-- **Documentation**: Check Alliance Auth documentation
-- **Issues**: Report bugs to your Alliance Auth administrator
-- **Discord**: Use `/auth-status` to check authentication state
-- **Logs**: Check server logs for detailed error information
+## Development
+
+This plugin is designed to work with:
+- Alliance Auth 3.0+
+- aa-discordbot 2.0+
+- Python 3.8+
+- Django 4.0+
 
 ## License
 
-This plugin is part of the Alliance Auth ecosystem and follows the same licensing terms.
+This project is licensed under the MIT License.

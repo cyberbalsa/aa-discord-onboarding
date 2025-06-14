@@ -1,120 +1,78 @@
+"""Celery tasks for Discord Onboarding."""
+
 import logging
-from datetime import timedelta
 
 from celery import shared_task
-from django.utils import timezone
+from celery.schedules import crontab
 
-from .models import DiscordAuthRequest, DiscordOnboardingStats
+from allianceauth.services.modules.discord.models import DiscordUser
+from allianceauth.services.modules.discord.tasks import update_groups, update_nickname
+
+from .models import OnboardingToken
 
 logger = logging.getLogger(__name__)
 
 
 @shared_task
-def send_auth_success_notification(discord_user_id, character_name, guild_id=None):
-    """
-    Send a success notification to Discord when authentication is completed
-    """
+def process_completed_onboarding(token_id):
+    """Process a completed onboarding by updating Discord roles and nickname."""
+
     try:
-        # Import here to avoid circular imports
-        from aadiscordbot.tasks import send_direct_message
+        token = OnboardingToken.objects.get(id=token_id)
 
-        message = (
-            f"🎉 **Authentication Successful!**\n\n"
-            f"Your Discord account has been successfully linked to **{character_name}**.\n\n"
-            f"You now have access to all authenticated channels and features. Welcome aboard!"
-        )
-
-        send_direct_message.delay(user_id=discord_user_id, message=message)
-
-        logger.info(
-            f"Sent authentication success notification to Discord user {discord_user_id}"
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to send authentication success notification: {e}")
-
-
-@shared_task
-def send_welcome_auth_message(discord_user_id, guild_id, auth_url):
-    """
-    Send welcome message with authentication link to new Discord member
-    """
-    try:
-        from aadiscordbot.tasks import send_direct_message
-
-        from .models import DiscordOnboardingConfiguration
-
-        config = DiscordOnboardingConfiguration.get_config()
-
-        if not config.send_welcome_dm:
+        if not token.used or not token.user:
+            logger.warning(f"Token {token_id} is not properly completed")
             return
 
-        message = config.welcome_message_template.format(auth_link=auth_url)
+        # Check if Discord user exists
+        try:
+            DiscordUser.objects.get(user=token.user)
 
-        send_direct_message.delay(user_id=discord_user_id, message=message)
+            # Update groups (roles) for the user
+            update_groups.delay(token.user.pk)
+            logger.info(f"Queued group update for user {token.user}")
 
-        logger.info(
-            f"Sent welcome authentication message to Discord user {discord_user_id}"
-        )
+            # Update nickname for the user
+            update_nickname.delay(token.user.pk)
+            logger.info(f"Queued nickname update for user {token.user}")
 
-        # Update stats
-        stats = DiscordOnboardingStats.get_today_stats()
-        stats.new_discord_members += 1
-        stats.save()
+        except DiscordUser.DoesNotExist:
+            logger.error(
+                f"DiscordUser not found for user {token.user} after onboarding completion"
+            )
 
+    except OnboardingToken.DoesNotExist:
+        logger.error(f"OnboardingToken {token_id} not found")
     except Exception as e:
-        logger.error(f"Failed to send welcome authentication message: {e}")
+        logger.error(f"Error processing completed onboarding for token {token_id}: {e}")
 
 
 @shared_task
-def cleanup_expired_auth_requests():
-    """
-    Clean up expired authentication requests (run daily)
-    """
-    try:
-        cutoff_date = timezone.now() - timedelta(
-            days=7
-        )  # Keep for 7 days for admin review
+def cleanup_expired_tokens():
+    """Clean up expired and old onboarding tokens."""
 
-        expired_requests = DiscordAuthRequest.objects.filter(
-            expires_at__lt=timezone.now(), completed=False, created_at__lt=cutoff_date
-        )
+    from django.utils import timezone
+    from datetime import timedelta
 
-        count = expired_requests.count()
-        expired_requests.delete()
+    # Delete tokens older than 24 hours
+    cutoff_date = timezone.now() - timedelta(hours=24)
 
-        logger.info(f"Cleaned up {count} expired authentication requests")
+    expired_count = OnboardingToken.objects.filter(
+        created_at__lt=cutoff_date
+    ).count()
 
-        # Update today's stats with expired count
-        today_expired = DiscordAuthRequest.objects.filter(
-            expires_at__lt=timezone.now(),
-            expires_at__date=timezone.now().date(),
-            completed=False,
-        ).count()
+    OnboardingToken.objects.filter(
+        created_at__lt=cutoff_date
+    ).delete()
 
-        if today_expired > 0:
-            stats = DiscordOnboardingStats.get_today_stats()
-            stats.auth_requests_expired += today_expired
-            stats.save()
-
-    except Exception as e:
-        logger.error(f"Failed to cleanup expired authentication requests: {e}")
+    logger.info(f"Cleaned up {expired_count} expired onboarding tokens")
+    return expired_count
 
 
-@shared_task
-def update_character_information(character_id):
-    """
-    Update EVE character information after authentication
-    """
-    try:
-        from allianceauth.eveonline.models import EveCharacter
-
-        character = EveCharacter.objects.get(character_id=character_id)
-        character.update_character()
-
-        logger.info(f"Updated character information for {character.character_name}")
-
-    except EveCharacter.DoesNotExist:
-        logger.warning(f"Character {character_id} not found for update")
-    except Exception as e:
-        logger.error(f"Failed to update character information for {character_id}: {e}")
+# Periodic task configuration (add to CELERYBEAT_SCHEDULE in settings)
+CELERYBEAT_SCHEDULE = {
+    'discord_onboarding_cleanup': {
+        'task': 'discord_onboarding.tasks.cleanup_expired_tokens',
+        'schedule': crontab(hour=2, minute=0),  # Run daily at 2 AM
+    },
+}

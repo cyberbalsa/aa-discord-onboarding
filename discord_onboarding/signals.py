@@ -1,26 +1,26 @@
+"""Django signals for Discord Onboarding."""
+
+import logging
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.utils import timezone
 
-from .models import DiscordAuthRequest, DiscordOnboardingStats
+from .models import OnboardingToken
+from .tasks import process_completed_onboarding
+
+logger = logging.getLogger(__name__)
 
 
-@receiver(post_save, sender=DiscordAuthRequest)
-def update_stats_on_auth_request(sender, instance, created, **kwargs):
-    """Update daily stats when auth requests are created or completed"""
+@receiver(post_save, sender=OnboardingToken)
+def onboarding_token_saved(sender, instance, created, **kwargs):
+    """Handle when an onboarding token is saved."""
 
-    stats = DiscordOnboardingStats.get_today_stats()
+    if not created and instance.used and instance.user:
+        # Token was just marked as used and linked to a user
+        logger.info(
+            f"Onboarding completed for user {instance.user} "
+            f"(Discord ID: {instance.discord_id})"
+        )
 
-    if created:
-        # New auth request created
-        stats.auth_requests_created += 1
-        stats.save()
-
-    elif instance.completed and instance.completed_at:
-        # Auth request completed
-        # Check if it was completed today
-        if instance.completed_at.date() == timezone.now().date():
-            completion_stats = DiscordOnboardingStats.get_today_stats()
-            completion_stats.auth_requests_completed += 1
-            completion_stats.successful_authentications += 1
-            completion_stats.save()
+        # Queue the Discord sync task
+        process_completed_onboarding.delay(instance.id)

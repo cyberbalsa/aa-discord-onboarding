@@ -1,1 +1,1 @@
-# Discord onboarding tests
+# Tests module

@@ -1,452 +1,301 @@
+"""Discord Onboarding Cog."""
+
 import logging
-from datetime import timedelta
 
 import discord
-from aadiscordbot.app_settings import get_site_url
-from aadiscordbot.cogs.utils.decorators import sender_has_perm
+from discord.colour import Color
+from discord.embeds import Embed
 from discord.ext import commands
-from django.utils import timezone
+
+from aadiscordbot.app_settings import get_site_url
+
+from ..app_settings import DISCORD_ONBOARDING_ADMIN_ROLES, DISCORD_ONBOARDING_BASE_URL
+from ..models import OnboardingToken
 
 logger = logging.getLogger(__name__)
 
 
-class DiscordOnboardingCog(commands.Cog):
+class OnboardingCog(commands.Cog):
     """
-    Discord onboarding cog for EVE Online authentication
+    Discord Onboarding Cog for Alliance Auth integration
     """
 
     def __init__(self, bot):
         self.bot = bot
 
-    def _get_auth_url(self, token):
-        """Generate authentication URL for a token"""
-        base_url = get_site_url()
-        return f"{base_url}/discord-onboarding/auth/{token}/"
-
-    def _is_admin_user(self, user, guild):
-        """Check if user has admin permissions for auth commands"""
-        from discord_onboarding.models import DiscordOnboardingConfiguration
-
-        try:
-            config = DiscordOnboardingConfiguration.get_config()
-            admin_role_ids = config.get_admin_role_ids()
-
-            if not admin_role_ids:
-                # If no admin roles configured, check for administrator permission
-                member = guild.get_member(user.id)
-                return member and member.guild_permissions.administrator
-
-            # Check if user has any of the configured admin roles
-            member = guild.get_member(user.id)
-            if not member:
-                return False
-
-            user_role_ids = [role.id for role in member.roles]
-            return any(role_id in user_role_ids for role_id in admin_role_ids)
-
-        except Exception as e:
-            logger.error(f"Error checking admin permissions: {e}")
-            return False
-
-    def _check_rate_limit(self, discord_user_id):
-        """Check if user has exceeded rate limit for auth requests"""
-        from discord_onboarding.models import (
-            DiscordAuthRequest,
-            DiscordOnboardingConfiguration,
-        )
-
-        try:
-            config = DiscordOnboardingConfiguration.get_config()
-            max_requests = config.max_requests_per_user_per_day
-
-            # Count requests from last 24 hours
-            cutoff_time = timezone.now() - timedelta(hours=24)
-            recent_requests = DiscordAuthRequest.objects.filter(
-                discord_user_id=discord_user_id, created_at__gte=cutoff_time
-            ).count()
-
-            return recent_requests < max_requests
-
-        except Exception as e:
-            logger.error(f"Error checking rate limit: {e}")
-            return True  # Allow on error
-
-    def _create_auth_request(self, discord_user_id, guild_id=None, admin_user=None):
-        """Create a new authentication request"""
-        from discord_onboarding.models import DiscordAuthRequest
-
-        try:
-            auth_request = DiscordAuthRequest.objects.create(
-                discord_user_id=discord_user_id,
-                guild_id=guild_id,
-                requested_by_admin=admin_user,
-            )
-            return auth_request
-        except Exception as e:
-            logger.error(f"Error creating auth request: {e}")
-            return None
-
-    @commands.slash_command(
-        name="auth",
-        description=(
-            "Get an authentication link to link your Discord account " "with EVE Online"
-        ),
-    )
-    async def auth_command(self, ctx, user: discord.Member = None):
-        """
-        Generate authentication link for Discord to EVE Online linking
-        """
-        try:
-            # Determine target user
-            if user is None:
-                # Self-authentication
-                target_user = ctx.author
-                is_admin_request = False
-            else:
-                # Admin targeting another user
-                if not self._is_admin_user(ctx.author, ctx.guild):
-                    embed = discord.Embed(
-                        title="❌ Permission Denied",
-                        description=(
-                            "You don't have permission to generate authentication "
-                            "links for other users."
-                        ),
-                        color=discord.Color.red(),
-                    )
-                    return await ctx.respond(embed=embed, ephemeral=True)
-
-                target_user = user
-                is_admin_request = True
-
-            # Check rate limiting for target user
-            if not self._check_rate_limit(target_user.id):
-                embed = discord.Embed(
-                    title="⏰ Rate Limited",
-                    description=(
-                        "Too many authentication requests today. "
-                        "Please try again later."
-                    ),
-                    color=discord.Color.orange(),
-                )
-                return await ctx.respond(embed=embed, ephemeral=True)
-
-            # Check if user is already authenticated
-            from allianceauth.services.modules.discord.models import DiscordUser
-
-            try:
-                existing_discord_user = DiscordUser.objects.get(uid=target_user.id)
-                if existing_discord_user.user:
-                    user_desc = (
-                        "You are"
-                        if not is_admin_request
-                        else f"{target_user.mention} is"
-                    )
-                    embed = discord.Embed(
-                        title="✅ Already Authenticated",
-                        description=f"{user_desc} already linked to Alliance Auth.",
-                        color=discord.Color.green(),
-                    )
-                    embed.add_field(
-                        name="Linked Account",
-                        value=existing_discord_user.user.username,
-                        inline=False,
-                    )
-                    return await ctx.respond(embed=embed, ephemeral=True)
-            except DiscordUser.DoesNotExist:
-                pass  # User not authenticated, continue
-
-            # Create authentication request
-            admin_user = None
-            if is_admin_request:
-                try:
-
-                    admin_discord_user = DiscordUser.objects.get(uid=ctx.author.id)
-                    admin_user = admin_discord_user.user
-                except DiscordUser.DoesNotExist:
-                    pass  # Admin not linked, but still allow the request
-
-            auth_request = self._create_auth_request(
-                discord_user_id=target_user.id,
-                guild_id=ctx.guild.id if ctx.guild else None,
-                admin_user=admin_user,
-            )
-
-            if not auth_request:
-                embed = discord.Embed(
-                    title="❌ Error",
-                    description=(
-                        "Failed to create authentication request. " "Please try again."
-                    ),
-                    color=discord.Color.red(),
-                )
-                return await ctx.respond(embed=embed, ephemeral=True)
-
-            # Generate authentication URL
-            auth_url = self._get_auth_url(auth_request.token)
-
-            # Create embed
-            embed = discord.Embed(
-                title="🔗 EVE Online Authentication",
-                description=(
-                    "Click the link below to authenticate with EVE Online "
-                    "and link your Discord account."
-                ),
-                color=discord.Color.blue(),
-            )
-
-            embed.add_field(
-                name="Authentication Link",
-                value=f"[Click here to authenticate]({auth_url})",
-                inline=False,
-            )
-
-            embed.add_field(
-                name="⏰ Expires",
-                value=f"<t:{int(auth_request.expires_at.timestamp())}:R>",
-                inline=True,
-            )
-
-            embed.add_field(
-                name="🔒 Secure",
-                value="This link is unique and expires in 24 hours",
-                inline=True,
-            )
-
-            embed.set_footer(
-                text=(
-                    "After clicking the link, you'll be redirected to "
-                    "EVE Online SSO for authentication."
-                )
-            )
-
-            if is_admin_request:
-                # Send to admin as ephemeral, then send DM to target user
-                await ctx.respond(
-                    f"Authentication link generated for {target_user.mention}",
-                    ephemeral=True,
-                )
-
-                try:
-                    await target_user.send(embed=embed)
-
-                    # Send confirmation to admin
-                    confirmation_embed = discord.Embed(
-                        title="✅ Authentication Link Sent",
-                        description=(
-                            f"Authentication link has been sent to "
-                            f"{target_user.mention} via DM."
-                        ),
-                        color=discord.Color.green(),
-                    )
-                    await ctx.followup.send(embed=confirmation_embed, ephemeral=True)
-
-                except discord.Forbidden:
-                    # Can't send DM, send link in channel
-                    error_embed = discord.Embed(
-                        title="⚠️ Cannot Send DM",
-                        description=(
-                            f"Could not send DM to {target_user.mention}. "
-                            "Here's the authentication link:"
-                        ),
-                        color=discord.Color.orange(),
-                    )
-                    error_embed.add_field(
-                        name="Authentication Link",
-                        value=f"[Click here to authenticate]({auth_url})",
-                        inline=False,
-                    )
-                    await ctx.followup.send(embed=error_embed, ephemeral=True)
-            else:
-                # Self-authentication - try to send DM first
-                try:
-                    await target_user.send(embed=embed)
-
-                    confirmation_embed = discord.Embed(
-                        title="📬 Check Your DMs",
-                        description="An authentication link has been sent to your direct messages.",
-                        color=discord.Color.green(),
-                    )
-                    await ctx.respond(embed=confirmation_embed, ephemeral=True)
-
-                except discord.Forbidden:
-                    # Can't send DM, send as ephemeral response
-                    await ctx.respond(embed=embed, ephemeral=True)
-
-            logger.info(
-                f"Generated auth link for Discord user {target_user.id} ({target_user.name})"
-            )
-
-        except Exception as e:
-            logger.error(f"Error in auth command: {e}")
-            embed = discord.Embed(
-                title="❌ Error",
-                description="An unexpected error occurred. Please try again later.",
-                color=discord.Color.red(),
-            )
-            await ctx.respond(embed=embed, ephemeral=True)
-
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        """
-        Send welcome message with authentication link when new member joins
-        """
+        """Send onboarding DM when a user joins the server."""
+
+        if member.bot:
+            return  # Don't send DMs to bots
+
         try:
-            from discord_onboarding.models import DiscordOnboardingConfiguration
-            from discord_onboarding.tasks import send_welcome_auth_message
+            # Create onboarding token
+            username = (
+                f"{member.name}#{member.discriminator}"
+                if member.discriminator != '0'
+                else f"@{member.name}"
+            )
+            token = OnboardingToken.objects.create(
+                discord_id=member.id,
+                discord_username=username
+            )
 
-            config = DiscordOnboardingConfiguration.get_config()
+            # Create onboarding URL
+            base_url = DISCORD_ONBOARDING_BASE_URL or get_site_url()
+            onboarding_url = f"{base_url}/discord-onboarding/start/{token.token}/"
 
-            if not config.send_welcome_dm:
-                return
+            # Create embed for DM
+            embed = Embed(
+                title="Welcome to our Discord Server!",
+                description=(
+                    "To gain access to all channels and features, you need to link "
+                    "your Discord account with our Alliance Auth system."
+                ),
+                color=Color.blue()
+            )
 
-            # Don't send to bots
-            if member.bot:
-                return
+            embed.add_field(
+                name="🚀 Get Started",
+                value=(
+                    f"Click the link below to authenticate with EVE Online and gain access:\n\n"
+                    f"[**Start Authentication Process**]({onboarding_url})"
+                ),
+                inline=False
+            )
 
-            # Check if user is already authenticated
-            from allianceauth.services.modules.discord.models import DiscordUser
+            embed.add_field(
+                name="❓ What happens next?",
+                value=(
+                    "• You'll be redirected to EVE Online SSO to verify your identity\n"
+                    "• Your Discord account will be linked to your EVE character\n"
+                    "• You'll automatically receive appropriate roles and access"
+                ),
+                inline=False
+            )
 
+            embed.add_field(
+                name="💬 Need Help?",
+                value=(
+                    "If you have any issues, please contact an administrator or use the "
+                    "`/auth` command to get a new authentication link."
+                ),
+                inline=False
+            )
+
+            embed.set_footer(text="This link will expire in 1 hour for security reasons.")
+
+            # Send DM to the user
             try:
-                existing_discord_user = DiscordUser.objects.get(uid=member.id)
-                if existing_discord_user.user:
-                    logger.info(
-                        f"New member {member.name} is already authenticated, skipping welcome message"
-                    )
-                    return
-            except DiscordUser.DoesNotExist:
-                pass  # User not authenticated, send welcome message
-
-            # Create authentication request
-            auth_request = self._create_auth_request(
-                discord_user_id=member.id, guild_id=member.guild.id
-            )
-
-            if not auth_request:
-                logger.error(
-                    f"Failed to create auth request for new member {member.name}"
+                await member.send(embed=embed)
+                logger.info(
+                    f"Sent onboarding DM to {member.name}#{member.discriminator} (ID: {member.id})"
                 )
-                return
-
-            # Generate authentication URL
-            auth_url = self._get_auth_url(auth_request.token)
-
-            # Send welcome message via task (async)
-            send_welcome_auth_message.delay(
-                discord_user_id=member.id, guild_id=member.guild.id, auth_url=auth_url
-            )
-
-            logger.info(
-                f"Sent welcome auth message to new member {member.name} ({member.id})"
-            )
+            except discord.Forbidden:
+                logger.warning(
+                    f"Could not send DM to {member.name}#{member.discriminator} "
+                    f"(ID: {member.id}) - DMs disabled"
+                )
+                # TODO: Maybe send a message in a welcome channel instead?
+            except discord.HTTPException as e:
+                logger.error(
+                    f"Failed to send DM to {member.name}#{member.discriminator} "
+                    f"(ID: {member.id}): {e}"
+                )
 
         except Exception as e:
             logger.error(
-                f"Error sending welcome message to new member {member.name}: {e}"
+                f"Error in on_member_join for {member.name}#{member.discriminator} "
+                f"(ID: {member.id}): {e}"
             )
 
     @commands.slash_command(
-        name="auth-status", description="Check authentication status"
+        name='auth',
+        description='Get an authentication link to link your Discord account'
     )
-    @sender_has_perm("aadiscordbot.member_command_access")
-    async def auth_status_command(self, ctx):
-        """
-        Check authentication status for the user
-        """
+    async def auth_self(self, ctx: discord.ApplicationContext):
+        """Allow users to get their own authentication link."""
+
         try:
-            from allianceauth.services.modules.discord.models import DiscordUser
-
-            from discord_onboarding.models import DiscordAuthRequest
-
-            # Check if user is authenticated
+            # Create or get existing token for this user
             try:
-                discord_user = DiscordUser.objects.get(uid=ctx.author.id)
-                if discord_user.user:
-                    embed = discord.Embed(
-                        title="✅ Authenticated",
-                        description="Your Discord account is linked to Alliance Auth.",
-                        color=discord.Color.green(),
+                # Try to get an existing valid token
+                token = OnboardingToken.objects.filter(
+                    discord_id=ctx.author.id,
+                    used=False
+                ).order_by('-created_at').first()
+
+                if token and not token.is_expired():
+                    # Use existing valid token
+                    pass
+                else:
+                    # Create new token
+                    username = (
+                        f"{ctx.author.name}#{ctx.author.discriminator}"
+                        if ctx.author.discriminator != '0'
+                        else f"@{ctx.author.name}"
                     )
-                    embed.add_field(
-                        name="Linked Account",
-                        value=discord_user.user.username,
-                        inline=False,
+                    token = OnboardingToken.objects.create(
+                        discord_id=ctx.author.id,
+                        discord_username=username
                     )
-
-                    # Get character information if available
-                    try:
-                        from allianceauth.authentication.models import (
-                            CharacterOwnership,
-                        )
-
-                        main_character = CharacterOwnership.objects.filter(
-                            user=discord_user.user
-                        ).first()
-                        if main_character:
-                            embed.add_field(
-                                name="Main Character",
-                                value=f"{main_character.character.character_name} ({main_character.character.corporation_name})",
-                                inline=False,
-                            )
-                    except Exception:
-                        pass
-
-                    return await ctx.respond(embed=embed, ephemeral=True)
-
-            except DiscordUser.DoesNotExist:
-                pass
-
-            # User not authenticated - check for pending requests
-            pending_requests = DiscordAuthRequest.objects.filter(
-                discord_user_id=ctx.author.id,
-                completed=False,
-                expires_at__gt=timezone.now(),
-            ).order_by("-created_at")
-
-            if pending_requests.exists():
-                latest_request = pending_requests.first()
-                embed = discord.Embed(
-                    title="⏳ Pending Authentication",
-                    description="You have a pending authentication request.",
-                    color=discord.Color.orange(),
+            except Exception as e:
+                logger.error(f"Error creating onboarding token for {ctx.author.id}: {e}")
+                await ctx.respond(
+                    "❌ An error occurred while creating your authentication link. "
+                    "Please try again later.",
+                    ephemeral=True
                 )
-                embed.add_field(
-                    name="Created",
-                    value=f"<t:{int(latest_request.created_at.timestamp())}:R>",
-                    inline=True,
-                )
-                embed.add_field(
-                    name="Expires",
-                    value=f"<t:{int(latest_request.expires_at.timestamp())}:R>",
-                    inline=True,
-                )
-                embed.add_field(
-                    name="Authentication Link",
-                    value=f"[Click here to authenticate]({self._get_auth_url(latest_request.token)})",
-                    inline=False,
-                )
-            else:
-                embed = discord.Embed(
-                    title="❌ Not Authenticated",
-                    description="Your Discord account is not linked to Alliance Auth.",
-                    color=discord.Color.red(),
-                )
-                embed.add_field(
-                    name="Get Started",
-                    value="Use the `/auth` command to generate an authentication link.",
-                    inline=False,
-                )
+                return
+
+            # Create onboarding URL
+            base_url = DISCORD_ONBOARDING_BASE_URL or get_site_url()
+            onboarding_url = f"{base_url}/discord-onboarding/start/{token.token}/"
+
+            # Create embed for response
+            embed = Embed(
+                title="🔗 Authentication Link",
+                description=(
+                    "Click the link below to authenticate with EVE Online and "
+                    "link your Discord account:"
+                ),
+                color=Color.green()
+            )
+
+            embed.add_field(
+                name="🚀 Authenticate Now",
+                value=f"[**Click here to start authentication**]({onboarding_url})",
+                inline=False
+            )
+
+            embed.set_footer(
+                text="This link will expire in 1 hour. Only you can see this message."
+            )
 
             await ctx.respond(embed=embed, ephemeral=True)
+            logger.info(
+                f"Sent auth link to {ctx.author.name}#{ctx.author.discriminator} "
+                f"(ID: {ctx.author.id})"
+            )
 
         except Exception as e:
-            logger.error(f"Error in auth-status command: {e}")
-            embed = discord.Embed(
-                title="❌ Error",
-                description="An unexpected error occurred while checking authentication status.",
-                color=discord.Color.red(),
+            logger.error(f"Error in auth_self command for {ctx.author.id}: {e}")
+            await ctx.respond("❌ An error occurred. Please try again later.", ephemeral=True)
+
+    @commands.slash_command(
+        name='auth-user',
+        description='Send an authentication link to another user (Admin only)'
+    )
+    async def auth_user(self, ctx: discord.ApplicationContext, user: discord.Member):
+        """Allow admins to send authentication links to other users."""
+
+        # Check if user has admin permissions
+        if not self._is_admin(ctx.author):
+            await ctx.respond(
+                "❌ You don't have permission to use this command.",
+                ephemeral=True
             )
-            await ctx.respond(embed=embed, ephemeral=True)
+            return
+
+        if user.bot:
+            await ctx.respond(
+                "❌ Cannot send authentication links to bots.",
+                ephemeral=True
+            )
+            return
+
+        try:
+            # Create onboarding token
+            username = (
+                f"{user.name}#{user.discriminator}"
+                if user.discriminator != '0'
+                else f"@{user.name}"
+            )
+            token = OnboardingToken.objects.create(
+                discord_id=user.id,
+                discord_username=username
+            )
+
+            # Create onboarding URL
+            base_url = DISCORD_ONBOARDING_BASE_URL or get_site_url()
+            onboarding_url = f"{base_url}/discord-onboarding/start/{token.token}/"
+
+            # Create embed for DM to target user
+            embed = Embed(
+                title="Authentication Request",
+                description=(
+                    f"An administrator ({ctx.author.mention}) has sent you an authentication "
+                    f"link to link your Discord account with Alliance Auth."
+                ),
+                color=Color.blue()
+            )
+
+            embed.add_field(
+                name="🚀 Get Started",
+                value=f"[**Click here to authenticate**]({onboarding_url})",
+                inline=False
+            )
+
+            embed.set_footer(text="This link will expire in 1 hour.")
+
+            # Send DM to target user
+            try:
+                await user.send(embed=embed)
+
+                # Confirm to admin
+                await ctx.respond(
+                    f"✅ Authentication link sent to {user.mention} via DM.",
+                    ephemeral=True
+                )
+                logger.info(
+                    f"Admin {ctx.author.name}#{ctx.author.discriminator} sent auth link to "
+                    f"{user.name}#{user.discriminator}"
+                )
+
+            except discord.Forbidden:
+                await ctx.respond(
+                    f"❌ Could not send DM to {user.mention} - their DMs might be disabled.",
+                    ephemeral=True
+                )
+                logger.warning(
+                    f"Could not send admin-requested DM to {user.name}#{user.discriminator} "
+                    f"(ID: {user.id})"
+                )
+            except discord.HTTPException as e:
+                await ctx.respond(
+                    f"❌ Failed to send DM to {user.mention}: {str(e)}",
+                    ephemeral=True
+                )
+                logger.error(
+                    f"Failed to send admin-requested DM to {user.name}#{user.discriminator} "
+                    f"(ID: {user.id}): {e}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error in auth_user command for target {user.id}: {e}")
+            await ctx.respond("❌ An error occurred. Please try again later.", ephemeral=True)
+
+    def _is_admin(self, member: discord.Member) -> bool:
+        """Check if a member has admin permissions for this bot."""
+
+        # Check if user has any of the configured admin roles
+        if DISCORD_ONBOARDING_ADMIN_ROLES:
+            member_role_ids = [role.id for role in member.roles]
+            if any(role_id in member_role_ids for role_id in DISCORD_ONBOARDING_ADMIN_ROLES):
+                return True
+
+        # Check if user has Discord server admin permissions
+        if member.guild_permissions.administrator:
+            return True
+
+        # Check if user has manage_server permission
+        if member.guild_permissions.manage_guild:
+            return True
+
+        return False
 
 
 def setup(bot):
-    bot.add_cog(DiscordOnboardingCog(bot))
+    """Setup function called by the Discord bot."""
+    bot.add_cog(OnboardingCog(bot))

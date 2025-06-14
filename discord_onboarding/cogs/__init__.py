@@ -1,1 +1,1 @@
-# Discord cogs for onboarding
+# Discord cogs module
