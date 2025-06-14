@@ -1,0 +1,77 @@
+{% extends "discord_onboarding/base.html" %}
+{% load i18n %}
+
+{% block panel_content %}
+<div class="row">
+    <div class="col-lg-12">
+        <h4>{% trans "Discord Onboarding Dashboard" %}</h4>
+        <p class="help-block">
+            {% trans "This plugin manages Discord onboarding tokens for your server. Tokens are automatically created by the Discord bot when users join or request authentication." %}
+        </p>
+        
+        {% if user.is_superuser or perms.discord_onboarding.admin_access %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            {% trans "As an administrator, you can view and manage onboarding tokens in the" %}
+            <a href="/admin/discord_onboarding/onboardingtoken/" target="_blank">Django Admin interface</a>.
+        </div>
+        {% endif %}
+        
+        {% if recent_tokens %}
+        <h5>{% trans "Your Recent Onboarding Tokens" %}</h5>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>{% trans "Discord Username" %}</th>
+                        <th>{% trans "Status" %}</th>
+                        <th>{% trans "Created" %}</th>
+                        <th>{% trans "Expires" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for token in recent_tokens %}
+                    <tr>
+                        <td>{{ token.discord_username }}</td>
+                        <td>
+                            {% if token.used %}
+                                <span class="label label-success">{% trans "Used" %}</span>
+                            {% elif token.is_expired %}
+                                <span class="label label-danger">{% trans "Expired" %}</span>
+                            {% else %}
+                                <span class="label label-warning">{% trans "Pending" %}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ token.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ token.expires_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            {% trans "No onboarding tokens found for your account." %}
+        </div>
+        {% endif %}
+        
+        <hr>
+        
+        <h5>{% trans "How It Works" %}</h5>
+        <ol>
+            <li>{% trans "When users join your Discord server, they automatically receive a DM with an authentication link" %}</li>
+            <li>{% trans "Users can also use the /auth command in Discord to get a new authentication link" %}</li>
+            <li>{% trans "Clicking the link redirects users to EVE SSO for authentication" %}</li>
+            <li>{% trans "After successful authentication, their Discord account is linked to Alliance Auth" %}</li>
+            <li>{% trans "Users receive appropriate Discord roles and nickname based on their Alliance Auth permissions" %}</li>
+        </ol>
+        
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>{% trans "Note:" %}</strong>
+            {% trans "Authentication tokens expire after 1 hour and can only be used once for security." %}
+        </div>
+    </div>
+</div>
+{% endblock panel_content %}

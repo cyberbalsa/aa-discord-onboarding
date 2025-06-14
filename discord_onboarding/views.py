@@ -2,6 +2,7 @@
 
 import logging
 
+from django.contrib.auth.decorators import login_required, permission_required
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -12,6 +13,20 @@ from allianceauth.services.modules.discord.models import DiscordUser
 from .models import OnboardingToken
 
 logger = logging.getLogger(__name__)
+
+
+@login_required
+@permission_required('discord_onboarding.basic_access', raise_exception=True)
+def index(request):
+    """Discord onboarding dashboard."""
+    # Get recent tokens for display
+    recent_tokens = OnboardingToken.objects.filter(user=request.user).order_by('-created_at')[:10]
+    
+    context = {
+        'recent_tokens': recent_tokens,
+    }
+    
+    return render(request, 'discord_onboarding/index.html', context)
 
 
 def onboarding_start(request, token):
