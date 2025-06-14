@@ -13,6 +13,8 @@ A Discord onboarding plugin for Alliance Auth that streamlines the process of li
 
 ## Installation
 
+### Production Installation (from PyPI)
+
 1. Install the plugin:
 ```bash
 pip install aa-discord-onboarding
@@ -50,6 +52,91 @@ urlpatterns = [
 ]
 ```
 
+### Development Installation (from Git)
+
+If you want to hack on the code or install the latest development version:
+
+1. **Clone the repository:**
+```bash
+cd /path/to/your/allianceauth/
+git clone https://github.com/cyberbalsa/aa-discord-onboarding.git
+```
+
+2. **Install in development mode:**
+```bash
+# Activate your Alliance Auth virtual environment first
+source venv/bin/activate  # or however you activate your venv
+
+# Install in editable/development mode
+pip install -e aa-discord-onboarding/
+```
+
+3. **Configure Alliance Auth** (same as production):
+```python
+# In your local.py or settings file
+INSTALLED_APPS = [
+    # ... other apps
+    'discord_onboarding',
+    # ... other apps
+]
+
+# Discord Onboarding Settings
+DISCORD_ONBOARDING_BASE_URL = 'https://your-auth-site.com'
+DISCORD_ONBOARDING_TOKEN_EXPIRY = 3600  # 1 hour
+DISCORD_ONBOARDING_ADMIN_ROLES = [123456789, 987654321]  # Discord role IDs
+```
+
+4. **Run migrations:**
+```bash
+python manage.py migrate discord_onboarding
+```
+
+5. **Load the Discord cog** (add to your Discord bot configuration)
+
+6. **Restart services:**
+```bash
+# Restart Alliance Auth
+sudo systemctl restart allianceauth-gunicorn
+sudo systemctl restart allianceauth-worker
+
+# Restart Discord bot (however you run it)
+sudo systemctl restart your-discord-bot
+```
+
+### Development Workflow
+
+When developing:
+
+1. **Make your changes** to the code in `aa-discord-onboarding/discord_onboarding/`
+
+2. **Test your changes:**
+```bash
+# Run tests
+cd aa-discord-onboarding/
+python -m pytest
+
+# Run linting
+python -m flake8 discord_onboarding/ --max-line-length=120 --exclude=migrations
+
+# Test package building
+python -m build
+```
+
+3. **Restart services** to see changes (Django will auto-reload in development mode)
+
+4. **Database changes** require new migrations:
+```bash
+python manage.py makemigrations discord_onboarding
+python manage.py migrate discord_onboarding
+```
+
+### Development Tips
+
+- **Log files**: Check Alliance Auth logs for debugging: `tail -f /var/log/allianceauth/allianceauth.log`
+- **Discord bot logs**: Check your Discord bot logs for cog-related issues
+- **Database**: Use Django admin at `/admin/` to view OnboardingToken objects
+- **Testing tokens**: Use the cleanup command to clear test tokens: `python manage.py cleanup_onboarding_tokens --dry-run`
+
 ## Discord Bot Setup
 
 The plugin includes a Discord cog that needs to be loaded by your Discord bot. If you're using the `aa-discordbot` package, the cog will be automatically discovered.
@@ -61,6 +148,29 @@ If you need to manually load the cog:
 ```python
 # In your bot setup
 bot.load_extension('discord_onboarding.cogs.onboarding')
+```
+
+### Development Cog Loading
+
+For development installations, you may need to ensure the cog is discoverable:
+
+1. **If using aa-discordbot**: The cog should be automatically discovered if the package is installed in the same environment.
+
+2. **Manual loading in development**:
+```python
+# If you're running the Discord bot separately, add the path
+import sys
+sys.path.append('/path/to/your/aa-discord-onboarding')
+
+# Then load the cog
+bot.load_extension('discord_onboarding.cogs.onboarding')
+```
+
+3. **For Docker setups**: Mount the development directory:
+```yaml
+# In docker-compose.yml
+volumes:
+  - /path/to/aa-discord-onboarding:/app/aa-discord-onboarding
 ```
 
 ## Usage
@@ -115,6 +225,32 @@ The plugin creates the following permissions:
 ### Logs
 
 The plugin logs important events at the INFO level and errors at the ERROR level. Check your Alliance Auth logs for troubleshooting.
+
+### Development Troubleshooting
+
+**Common development issues:**
+
+1. **Cog not loading**: 
+   - Check Discord bot logs for import errors
+   - Ensure `discord_onboarding` is in Python path
+   - Verify the package is installed with `pip list | grep discord-onboarding`
+
+2. **Database errors**:
+   - Run migrations: `python manage.py migrate discord_onboarding`
+   - Check if app is in `INSTALLED_APPS`
+
+3. **Import errors**:
+   - Install in development mode: `pip install -e aa-discord-onboarding/`
+   - Check virtual environment is activated
+
+4. **Template not found**:
+   - Restart Alliance Auth services after installing
+   - Check `TEMPLATES` setting includes `APP_DIRS = True`
+
+5. **ESI/SSO issues**:
+   - Verify ESI settings in Alliance Auth
+   - Check callback URL configuration
+   - Ensure `DISCORD_ONBOARDING_BASE_URL` matches your domain
 
 ## Development
 
