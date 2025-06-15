@@ -61,8 +61,7 @@ class OnboardingCog(commands.Cog):
             embed.add_field(
                 name="**👇 CLICK THE LINK BELOW TO GET STARTED 👇**",
                 value=(
-                    f"# 🚀 [**🔗 START AUTHENTICATION NOW**]({onboarding_url}) 🚀\n\n"
-                    f"⬆️ **Click the blue link above to authenticate with EVE Online** ⬆️"
+                    f"\n\n 🚀 [# **🔗 START AUTHENTICATION NOW**]({onboarding_url}) 🚀\n\n"
                 ),
                 inline=False
             )
@@ -71,6 +70,7 @@ class OnboardingCog(commands.Cog):
                 name="❓ What happens next?",
                 value=(
                     "• You'll be redirected to EVE Online SSO to verify your identity\n"
+		    "• **No Private EVE Data is gathered, only public data**\n"
                     "• Your Discord account will be linked to your EVE character\n"
                     "• You'll automatically receive appropriate roles and access"
                 ),
