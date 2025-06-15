@@ -32,3 +32,8 @@ def register_menu():
 @hooks.register('url_hook')
 def register_urls():
     return UrlHook(urls, 'discord_onboarding', r'^discord-onboarding/')
+
+
+@hooks.register('discord_cogs_hook')
+def register_cogs():
+    return ['discord_onboarding.cogs.onboarding']
