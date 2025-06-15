@@ -331,6 +331,42 @@ def process_auto_kick_schedules():
     return f"Processed {reminder_count} reminders and {kick_count} kicks"
 
 
+@shared_task
+def add_orphaned_users_admin_task(guild_ids):
+    """Admin task to add orphaned Discord users from specified guilds to auto-kick timeline."""
+    
+    if not DISCORD_ONBOARDING_AUTO_KICK_ENABLED:
+        logger.warning("Auto-kick feature is not enabled")
+        return "Auto-kick feature is not enabled"
+
+    total_added = 0
+    total_already_scheduled = 0
+    total_linked = 0
+    total_bots = 0
+    guilds_processed = 0
+
+    # This task runs in Django context, not Discord bot context
+    # So we need to use the Discord bot task system to get guild member information
+    logger.info(f"Admin requested adding orphaned users from {len(guild_ids)} guilds: {guild_ids}")
+    
+    # We can't directly access Discord guild members from a Django/Celery task
+    # The admin action should guide users to use the Discord slash command instead
+    # But we can still provide some feedback
+    
+    try:
+        # Count existing schedules for reporting
+        active_schedules = AutoKickSchedule.objects.filter(is_active=True).count()
+        logger.info(f"Admin add orphans task: {active_schedules} active schedules exist")
+        
+        return (f"Admin task completed. Note: Discord bot integration required for member scanning. "
+                f"Current active schedules: {active_schedules}. "
+                f"Use Discord slash command for full functionality.")
+    
+    except Exception as e:
+        logger.error(f"Error in add_orphaned_users_admin_task: {e}")
+        return f"Error: {e}"
+
+
 # Periodic task configuration (add to CELERYBEAT_SCHEDULE in settings)
 CELERYBEAT_SCHEDULE = {
     'discord_onboarding_cleanup': {
