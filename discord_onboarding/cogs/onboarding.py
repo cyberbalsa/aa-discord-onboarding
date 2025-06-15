@@ -348,7 +348,11 @@ class OnboardingCog(commands.Cog):
             # Prepare batch insert data
             schedules_to_create = []
             from django.utils import timezone
+            from datetime import timedelta
+            from ..app_settings import DISCORD_ONBOARDING_AUTO_KICK_TIMEOUT_HOURS
+            
             current_time = timezone.now()
+            kick_time = current_time + timedelta(hours=DISCORD_ONBOARDING_AUTO_KICK_TIMEOUT_HOURS)
 
             for member in member_list:
                 # Skip bots
@@ -377,7 +381,8 @@ class OnboardingCog(commands.Cog):
                     discord_id=member.id,
                     discord_username=username,
                     guild_id=ctx.guild.id,
-                    joined_at=current_time
+                    joined_at=current_time,
+                    kick_scheduled_at=kick_time  # Explicitly set the kick time
                 ))
 
             # Batch create all schedules

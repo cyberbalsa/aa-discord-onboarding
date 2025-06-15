@@ -89,7 +89,8 @@ class AutoKickSchedule(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        if not self.kick_scheduled_at:
+        # Set kick_scheduled_at if not already set
+        if not self.kick_scheduled_at and self.joined_at:
             self.kick_scheduled_at = self.joined_at + timedelta(
                 hours=DISCORD_ONBOARDING_AUTO_KICK_TIMEOUT_HOURS
             )
