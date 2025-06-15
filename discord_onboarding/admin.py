@@ -64,7 +64,7 @@ class AutoKickScheduleAdmin(admin.ModelAdmin):
     search_fields = ('discord_username', 'discord_id', 'guild_id')
     readonly_fields = ('joined_at', 'status_display', 'time_until_kick')
     ordering = ('-joined_at',)
-    actions = ['deactivate_schedules', 'send_reminder_now', 'add_all_orphaned_users', 'clear_all_schedules']
+    actions = ['deactivate_schedules', 'delete_schedules', 'send_reminder_now', 'add_all_orphaned_users', 'clear_all_schedules']
 
     def status_display(self, obj):
         if not obj.is_active:
@@ -125,6 +125,32 @@ class AutoKickScheduleAdmin(admin.ModelAdmin):
 
     deactivate_schedules.short_description = _('Deactivate selected schedules')
 
+    def delete_schedules(self, request, queryset):
+        """Permanently delete selected auto-kick schedules."""
+        count = queryset.count()
+        
+        if count == 0:
+            self.message_user(request, _('No schedules selected for deletion.'))
+            return
+        
+        try:
+            # Delete the selected schedules
+            deleted_count, _ = queryset.delete()
+            
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Admin deleted {deleted_count} selected auto-kick schedules")
+            
+            self.message_user(request, _(f'Successfully deleted {deleted_count} auto-kick schedules from the database.'))
+        
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to delete selected schedules: {e}")
+            self.message_user(request, _(f'Error deleting schedules: {e}'), level='ERROR')
+
+    delete_schedules.short_description = _('Delete selected schedules permanently')
+
     def send_reminder_now(self, request, queryset):
         """Send reminder DM to selected users immediately."""
         from .tasks import send_onboarding_reminder
@@ -184,7 +210,7 @@ class AutoKickScheduleAdmin(admin.ModelAdmin):
     add_all_orphaned_users.short_description = _('Add all orphaned Discord users to auto-kick timeline')
 
     def clear_all_schedules(self, request, queryset):
-        """Clear all active auto-kick schedules (deactivate them all)."""
+        """Clear all active auto-kick schedules (delete them permanently)."""
         
         try:
             # Get all active schedules, not just the queryset
@@ -195,37 +221,52 @@ class AutoKickScheduleAdmin(admin.ModelAdmin):
                 self.message_user(request, _('No active auto-kick schedules found to clear.'))
                 return
 
-            # Deactivate all active schedules
-            deactivated_count = 0
-            failed_count = 0
-            
-            for schedule in all_active_schedules:
-                try:
-                    schedule.deactivate()
-                    deactivated_count += 1
-                except Exception as e:
-                    failed_count += 1
-                    # Log the error but continue processing
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.error(f"Failed to deactivate schedule for {schedule.discord_username}: {e}")
-
-            # Report results
-            if failed_count == 0:
+            # Delete all active schedules permanently
+            try:
+                # Use bulk delete for efficiency
+                deleted_count, _ = AutoKickSchedule.objects.filter(is_active=True).delete()
+                
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Admin bulk deleted {deleted_count} auto-kick schedules from database")
+                
                 self.message_user(request, _(
-                    f'Successfully cleared {deactivated_count} auto-kick schedules. '
-                    f'Users will no longer receive reminder DMs or be auto-kicked.'
+                    f'Successfully purged {deleted_count} auto-kick schedules from the database. '
+                    f'All scheduled kicks have been permanently removed.'
                 ))
-            else:
-                self.message_user(request, _(
-                    f'Cleared {deactivated_count} schedules successfully, but {failed_count} failed. '
-                    f'Check the logs for details.'
-                ), level='WARNING')
+                
+            except Exception as e:
+                # Fallback to individual deletion if bulk fails
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to bulk delete schedules: {e}")
+                
+                deleted_count = 0
+                failed_count = 0
+                
+                for schedule in all_active_schedules:
+                    try:
+                        schedule.delete()
+                        deleted_count += 1
+                    except Exception as individual_error:
+                        failed_count += 1
+                        logger.error(f"Failed to delete schedule for {schedule.discord_username}: {individual_error}")
+
+                # Report results
+                if failed_count == 0:
+                    self.message_user(request, _(
+                        f'Successfully purged {deleted_count} auto-kick schedules from the database.'
+                    ))
+                else:
+                    self.message_user(request, _(
+                        f'Deleted {deleted_count} schedules successfully, but {failed_count} failed. '
+                        f'Check the logs for details.'
+                    ), level='WARNING')
 
         except Exception as e:
             self.message_user(request, _(f'Error clearing schedules: {e}'), level='ERROR')
 
-    clear_all_schedules.short_description = _('Clear all auto-kick schedules (deactivate all)')
+    clear_all_schedules.short_description = _('Clear all auto-kick schedules (delete permanently)')
 
     def has_add_permission(self, request):
         # Schedules should be created by the bot, not manually

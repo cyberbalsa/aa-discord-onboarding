@@ -425,7 +425,7 @@ class OnboardingCog(commands.Cog):
     @admin_commands.command(name='clear_autokick_timeline', guild_ids=bot_settings.get_all_servers()) 
     async def clear_autokick_timeline(self, ctx):
         """
-        Clear the entire auto-kick timeline (deactivate all scheduled kicks)
+        Clear the entire auto-kick timeline (delete all scheduled kicks)
         """
         # Check admin permissions using the same method as allianceauth-discordbot
         if ctx.author.id not in bot_settings.get_admins():
@@ -446,31 +446,38 @@ class OnboardingCog(commands.Cog):
                 )
                 return await ctx.respond(embed=embed)
 
-            # Deactivate all active schedules
-            deactivated_count = 0
-            for schedule in active_schedules:
-                try:
-                    schedule.deactivate()
-                    deactivated_count += 1
-                    logger.info(f"Deactivated auto-kick schedule for {schedule.discord_username} (ID: {schedule.discord_id})")
-                except Exception as e:
-                    logger.error(f"Failed to deactivate schedule for {schedule.discord_username}: {e}")
+            # Delete all active schedules from database
+            try:
+                # Use bulk delete for efficiency
+                deleted_count, _ = AutoKickSchedule.objects.filter(is_active=True).delete()
+                logger.info(f"Bulk deleted {deleted_count} auto-kick schedules from database")
+            except Exception as e:
+                logger.error(f"Failed to bulk delete schedules: {e}")
+                # Fallback to individual deletion
+                deleted_count = 0
+                for schedule in active_schedules:
+                    try:
+                        schedule.delete()
+                        deleted_count += 1
+                        logger.info(f"Deleted auto-kick schedule for {schedule.discord_username} (ID: {schedule.discord_id})")
+                    except Exception as individual_error:
+                        logger.error(f"Failed to delete schedule for {schedule.discord_username}: {individual_error}")
 
             # Create response embed
             embed = Embed(
-                title="🗑️ Auto-Kick Timeline Cleared",
-                description="All scheduled auto-kicks have been deactivated",
+                title="🗑️ Auto-Kick Timeline Purged",
+                description="All scheduled auto-kicks have been permanently deleted",
                 color=Color.red()
             )
             
             embed.add_field(name="📊 Total Found", value=str(total_count), inline=True)
-            embed.add_field(name="✅ Deactivated", value=str(deactivated_count), inline=True)
-            embed.add_field(name="❌ Failed", value=str(total_count - deactivated_count), inline=True)
+            embed.add_field(name="🗑️ Deleted", value=str(deleted_count), inline=True)
+            embed.add_field(name="❌ Failed", value=str(total_count - deleted_count), inline=True)
             
-            if deactivated_count > 0:
+            if deleted_count > 0:
                 embed.add_field(
                     name="ℹ️ Note", 
-                    value="Users will no longer receive reminder DMs or be auto-kicked. They can still authenticate normally.",
+                    value="All auto-kick schedules have been permanently removed from the database. Users can still authenticate normally.",
                     inline=False
                 )
 
