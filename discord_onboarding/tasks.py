@@ -147,7 +147,7 @@ def send_onboarding_reminder(schedule_id):
         from aadiscordbot import tasks as discord_tasks
         discord_tasks.send_direct_message_by_discord_id.delay(
             discord_user_id=schedule.discord_id,
-            message=message,
+            message="",  # Empty message since embed contains all content
             embed=embed_data
         )
 
@@ -194,7 +194,7 @@ def auto_kick_unauthenticated_user(schedule_id):
         from aadiscordbot import tasks as discord_tasks
         discord_tasks.send_direct_message_by_discord_id.delay(
             discord_user_id=schedule.discord_id,
-            message="",
+            message="",  # Empty message since embed contains all content
             embed=goodbye_embed
         )
 
