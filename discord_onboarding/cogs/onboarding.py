@@ -79,7 +79,7 @@ class OnboardingCog(commands.Cog):
                 name="💬 Need Help?",
                 value=(
                     "If you have any issues, please contact an administrator or use the "
-                    "`/auth` command to get a new authentication link."
+                    "`/bind` command to get a new authentication link."
                 ),
                 inline=False
             )
@@ -111,10 +111,10 @@ class OnboardingCog(commands.Cog):
             )
 
     @commands.slash_command(
-        name='auth',
+        name='bind',
         description='Get an authentication link to link your Discord account'
     )
-    async def auth_self(self, ctx: discord.ApplicationContext):
+    async def bind_self(self, ctx: discord.ApplicationContext):
         """Allow users to get their own authentication link."""
 
         try:
@@ -175,12 +175,12 @@ class OnboardingCog(commands.Cog):
 
             await ctx.respond(embed=embed, ephemeral=True)
             logger.info(
-                f"Sent auth link to {ctx.author.name}#{ctx.author.discriminator} "
+                f"Sent bind link to {ctx.author.name}#{ctx.author.discriminator} "
                 f"(ID: {ctx.author.id})"
             )
 
         except Exception as e:
-            logger.error(f"Error in auth_self command for {ctx.author.id}: {e}")
+            logger.error(f"Error in bind_self command for {ctx.author.id}: {e}")
             await ctx.respond("❌ An error occurred. Please try again later.", ephemeral=True)
 
     @commands.slash_command(

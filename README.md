@@ -7,7 +7,7 @@ A Discord onboarding plugin for Alliance Auth that streamlines the process of li
 - **Automatic Onboarding**: New Discord users receive a DM with an authentication link when they join the server
 - **Simple Workflow**: One-click authentication via EVE SSO - no complex steps for users
 - **Admin Commands**: Admins can send authentication links to specific users
-- **Self-Service**: Users can generate new authentication links with `/auth`
+- **Self-Service**: Users can generate new authentication links with `/bind`
 - **Automatic Integration**: Seamlessly integrates with Alliance Auth's Discord service for role/nickname sync
 - **Security**: Secure token-based authentication with automatic expiration
 
@@ -178,7 +178,7 @@ volumes:
 ### For End Users
 
 1. **Automatic Onboarding**: When a user joins the Discord server, they automatically receive a DM with an authentication link
-2. **Manual Authentication**: Users can use `/auth` in Discord to get a new authentication link
+2. **Manual Authentication**: Users can use `/bind` in Discord to get a new authentication link
 3. **Click & Authenticate**: Users click the link, authenticate with EVE Online, and their Discord account is automatically linked
 
 ### For Administrators
@@ -197,7 +197,7 @@ volumes:
 
 ## Commands
 
-- `/auth` - Get a personal authentication link (ephemeral response)
+- `/bind` - Get a personal authentication link (ephemeral response)
 - `/auth-user <member>` - Send an authentication link to another user (admin only)
 
 ## Permissions
