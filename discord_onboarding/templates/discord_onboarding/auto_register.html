@@ -1,0 +1,37 @@
+{% extends "discord_onboarding/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Complete Registration" %}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-user-plus"></i> {% trans "Complete Registration" %}</h4>
+                </div>
+                <div class="card-body">
+                    <p>{% trans "Welcome" %} <strong>{{ user.username }}</strong>!</p>
+                    <p>{% trans "You're almost done! Click the button below to complete your registration and activate your account." %}</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ next }}">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-check"></i> {% trans "Complete Registration" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-submit the form after a short delay for better UX
+setTimeout(function() {
+    document.querySelector('form').submit();
+}, 2000);
+</script>
+{% endblock %}

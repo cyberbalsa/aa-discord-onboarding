@@ -11,4 +11,5 @@ urlpatterns = [
     path('start/<str:token>/', views.onboarding_start, name='start'),
     path('callback/', views.onboarding_callback, name='callback'),
     path('sso/login/', views.discord_onboarding_sso_login, name='sso_login'),
+    path('registration/', views.discord_onboarding_registration, name='registration'),
 ]

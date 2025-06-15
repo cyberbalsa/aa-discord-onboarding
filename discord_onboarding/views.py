@@ -156,21 +156,15 @@ def onboarding_callback(request):
 # Custom SSO login view for Discord onboarding with email bypass
 from esi.decorators import token_required
 from django.conf import settings
-from allianceauth.authentication.views import sso_login as base_sso_login
 from django.contrib.auth.models import User
 
 
 @token_required(new=True, scopes=settings.LOGIN_TOKEN_SCOPES)
 def discord_onboarding_sso_login(request, token):
-    """Custom SSO login that temporarily disables email verification for Discord onboarding."""
-    
-    # Temporarily override the REGISTRATION_VERIFY_EMAIL setting
-    original_setting = getattr(settings, 'REGISTRATION_VERIFY_EMAIL', True)
+    """Custom SSO login that handles email verification bypass for Discord onboarding."""
     
     # Check if this is a Discord onboarding request
-    if request.session.get('discord_onboarding_bypass_email', False):
-        # Temporarily disable email verification
-        settings.REGISTRATION_VERIFY_EMAIL = False
+    bypass_email = request.session.get('discord_onboarding_bypass_email', False)
     
     try:
         # Use the original sso_login logic
@@ -182,14 +176,27 @@ def discord_onboarding_sso_login(request, token):
                 token.delete()
             else:
                 token.save()
+            
+            # If user is active, login and redirect
             if user.is_active:
                 login(request, user)
                 return redirect(request.POST.get('next', request.GET.get('next', 'authentication:dashboard')))
+            
+            # If user is not active and we have email bypass enabled, activate the user
+            elif bypass_email and DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION:
+                user.is_active = True
+                user.save()
+                login(request, user)
+                logger.info(f"Activated user {user.username} via Discord onboarding email bypass")
+                return redirect(request.POST.get('next', request.GET.get('next', 'authentication:dashboard')))
+            
+            # If user has no email, redirect to registration
             elif not user.email:
                 # Store the new user PK in the session to enable us to identify the registering user
                 request.session['registration_uid'] = user.pk
-                # Go to registration with email bypass enabled
-                return redirect('registration_register')
+                # Go to custom registration that handles email bypass
+                return redirect('discord_onboarding:registration')
+        
         # Logging in with an alt is not allowed due to security concerns.
         token.delete()
         messages.error(
@@ -200,6 +207,53 @@ def discord_onboarding_sso_login(request, token):
             )
         )
         return redirect(settings.LOGIN_URL)
-    finally:
-        # Always restore the original setting
-        settings.REGISTRATION_VERIFY_EMAIL = original_setting
+    except Exception as e:
+        logger.error(f"Error in discord_onboarding_sso_login: {e}")
+        return redirect(settings.LOGIN_URL)
+
+
+def discord_onboarding_registration(request):
+    """Custom registration view for Discord onboarding that handles email bypass."""
+    from django.contrib.auth.forms import UserCreationForm
+    from django.http import HttpResponseBadRequest
+    
+    # Check if this is a Discord onboarding request
+    bypass_email = request.session.get('discord_onboarding_bypass_email', False)
+    registration_uid = request.session.get('registration_uid')
+    
+    if not bypass_email or not DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION:
+        # Redirect to normal registration if bypass is not enabled
+        return redirect('registration_register')
+    
+    if not registration_uid:
+        return HttpResponseBadRequest("Invalid registration session")
+    
+    try:
+        # Get the user that was created during SSO
+        user = User.objects.get(pk=registration_uid)
+        
+        if request.method == 'POST':
+            # For Discord onboarding, we skip email verification
+            # Just activate the user and login
+            user.is_active = True
+            user.save()
+            
+            # Clear the registration session
+            if 'registration_uid' in request.session:
+                del request.session['registration_uid']
+            
+            login(request, user)
+            logger.info(f"Registered and activated user {user.username} via Discord onboarding")
+            
+            # Redirect to the callback URL
+            return redirect(request.GET.get('next', 'authentication:dashboard'))
+        
+        # For GET request, show a simple form or auto-submit
+        # Since we're bypassing email, we can auto-submit
+        return render(request, 'discord_onboarding/auto_register.html', {
+            'user': user,
+            'next': request.GET.get('next', 'authentication:dashboard')
+        })
+        
+    except User.DoesNotExist:
+        return HttpResponseBadRequest("Invalid registration user")
