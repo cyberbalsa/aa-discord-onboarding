@@ -71,9 +71,9 @@ async def send_reminder_with_guild_context(bot, schedule_id, onboarding_url, rem
         guild_name = guild.name if guild else "the Discord server"
         
         embed_data = {
-            "title": f"⏰ {guild_name} Authentication Reminder #{reminder_number} ⏰",
+            "title": f"{guild_name} Authentication Reminder #{reminder_number}",
             "description": (
-                f"# 🔐 **ACTION REQUIRED** 🔐\n\n"
+                f"# **ACTION REQUIRED**\n\n"
                 f"You still need to authenticate your Discord account to maintain access to **{guild_name}**.\n\n"
                 f"**Time remaining:** You have until **{kick_time}** "
                 f"to complete authentication, or you will be automatically removed from the server.\n\n"
@@ -81,12 +81,12 @@ async def send_reminder_with_guild_context(bot, schedule_id, onboarding_url, rem
             "color": 0xFF6B35,  # Orange color for warning
             "fields": [
                 {
-                    "name": "**👇 CLICK THE LINK BELOW TO AUTHENTICATE NOW 👇**",
-                    "value": f"🚀 [**🔗 AUTHENTICATE NOW**]({onboarding_url}) 🚀\n\n",
+                    "name": "**CLICK THE LINK BELOW TO AUTHENTICATE NOW**",
+                    "value": f"[**AUTHENTICATE NOW**]({onboarding_url})\n\n",
                     "inline": False
                 },
                 {
-                    "name": "❓ What happens if I don't authenticate?",
+                    "name": "What happens if I don't authenticate?",
                     "value": (
                         f"• You will be automatically removed from **{guild_name}**\n"
                         "• You can rejoin anytime and authenticate then\n"
@@ -130,7 +130,7 @@ async def send_goodbye_with_guild_context(bot, schedule_id, goodbye_message):
         guild_name = guild.name if guild else "the Discord server"
         
         goodbye_embed = {
-            "title": f"👋 Goodbye from {guild_name}",
+            "title": f"Goodbye from {guild_name}",
             "description": goodbye_message,
             "color": 0xFF0000,  # Red color
             "footer": {
