@@ -146,9 +146,9 @@ def send_onboarding_reminder(schedule_id):
         # Send DM via Discord bot task system
         from aadiscordbot import tasks as discord_tasks
         discord_tasks.send_direct_message_by_discord_id.delay(
-            discord_user_id=schedule.discord_id,
-            message="",  # Empty message since embed contains all content
-            embed=embed_data
+            schedule.discord_id,  # discord_user_id as positional
+            "",  # message as positional (empty since embed has content)
+            embed=embed_data  # embed as keyword
         )
 
         # Mark reminder as sent
@@ -193,9 +193,9 @@ def auto_kick_unauthenticated_user(schedule_id):
 
         from aadiscordbot import tasks as discord_tasks
         discord_tasks.send_direct_message_by_discord_id.delay(
-            discord_user_id=schedule.discord_id,
-            message="",  # Empty message since embed contains all content
-            embed=goodbye_embed
+            schedule.discord_id,  # discord_user_id as positional
+            "",  # message as positional (empty since embed has content)
+            embed=goodbye_embed  # embed as keyword
         )
 
         # Kick user from guild
@@ -277,9 +277,9 @@ def log_auto_kick(schedule_id):
 
         from aadiscordbot import tasks as discord_tasks
         discord_tasks.send_channel_message_by_discord_id.delay(
-            channel_id=DISCORD_ONBOARDING_KICK_LOG_CHANNEL_ID,
-            message="",
-            embed=log_embed
+            DISCORD_ONBOARDING_KICK_LOG_CHANNEL_ID,  # channel_id as positional  
+            "",  # message as positional (empty since embed has content)
+            embed=log_embed  # embed as keyword
         )
 
         logger.info(f"Logged auto-kick event for {schedule.discord_username} to channel {DISCORD_ONBOARDING_KICK_LOG_CHANNEL_ID}")
