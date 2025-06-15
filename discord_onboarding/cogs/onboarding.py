@@ -76,9 +76,9 @@ class OnboardingCog(commands.Cog):
 
             # Create embed for DM
             embed = Embed(
-                title=f"🎉 Welcome to {member.guild.name}! 🎉",
+                title=f"Welcome to {member.guild.name}",
                 description=(
-                    "# 🔐 **AUTHENTICATION REQUIRED** 🔐\n\n"
+                    "**AUTHENTICATION REQUIRED**\n\n"
                     f"To gain access to all channels and features in **{member.guild.name}**, you need to link "
                     "your Discord account with our Alliance Auth system.\n\n"
                 ),
@@ -86,15 +86,15 @@ class OnboardingCog(commands.Cog):
             )
 
             embed.add_field(
-                name="**👇 CLICK THE LINK BELOW TO GET STARTED 👇**",
+                name="**CLICK THE LINK BELOW TO GET STARTED**",
                 value=(
-                    f"\n\n 🚀 [# **🔗 START AUTHENTICATION NOW**]({onboarding_url}) 🚀\n\n"
+                    f"\n\n[**START AUTHENTICATION NOW**]({onboarding_url})\n\n"
                 ),
                 inline=False
             )
 
             embed.add_field(
-                name="❓ What happens next?",
+                name="What happens next?",
                 value=(
                     "• You'll be redirected to EVE Online SSO to verify your identity\n"
 		    "• **No Private EVE Data is gathered, only public data**\n"
@@ -105,7 +105,7 @@ class OnboardingCog(commands.Cog):
             )
 
             embed.add_field(
-                name="💬 Need Help?",
+                name="Need Help?",
                 value=(
                     f"If you have any issues with {member.guild.name} authentication, please contact an administrator or use the "
                     "`/bind` command to get a new authentication link."
@@ -172,7 +172,7 @@ class OnboardingCog(commands.Cog):
             except Exception as e:
                 logger.error(f"Error creating onboarding token for {ctx.author.id}: {e}")
                 await ctx.respond(
-                    "❌ An error occurred while creating your authentication link. "
+                    "An error occurred while creating your authentication link. "
                     "Please try again later.",
                     ephemeral=True
                 )
@@ -184,17 +184,17 @@ class OnboardingCog(commands.Cog):
 
             # Create embed for response
             embed = Embed(
-                title="🔗 Your Personal Authentication Link",
+                title="Your Personal Authentication Link",
                 description=(
-                    "# 🔐 **AUTHENTICATION LINK READY** 🔐\n\n"
+                    "**AUTHENTICATION LINK READY**\n\n"
                 ),
                 color=Color.green()
             )
 
             embed.add_field(
-                name="**👇 CLICK THE LINK BELOW TO AUTHENTICATE 👇**",
+                name="**CLICK THE LINK BELOW TO AUTHENTICATE**",
                 value=(
-                    f"🚀 [**🔗 CLICK HERE TO AUTHENTICATE**]({onboarding_url}) 🚀\n\n"
+                    f"[**CLICK HERE TO AUTHENTICATE**]({onboarding_url})\n\n"
                 ),
                 inline=False
             )
@@ -211,7 +211,7 @@ class OnboardingCog(commands.Cog):
 
         except Exception as e:
             logger.error(f"Error in bind_self command for {ctx.author.id}: {e}")
-            await ctx.respond("❌ An error occurred. Please try again later.", ephemeral=True)
+            await ctx.respond("An error occurred. Please try again later.", ephemeral=True)
 
     @commands.slash_command(
         name='auth-user',
@@ -223,14 +223,14 @@ class OnboardingCog(commands.Cog):
         # Check if user has admin permissions
         if not self._is_admin(ctx.author):
             await ctx.respond(
-                "❌ You don't have permission to use this command.",
+                "You don't have permission to use this command.",
                 ephemeral=True
             )
             return
 
         if user.bot:
             await ctx.respond(
-                "❌ Cannot send authentication links to bots.",
+                "Cannot send authentication links to bots.",
                 ephemeral=True
             )
             return
@@ -253,9 +253,9 @@ class OnboardingCog(commands.Cog):
 
             # Create embed for DM to target user
             embed = Embed(
-                title=f"🛡️ {ctx.guild.name} Admin Authentication Request 🛡️",
+                title=f"{ctx.guild.name} Admin Authentication Request",
                 description=(
-                    f"# 🔐 **AUTHENTICATION REQUIRED** 🔐\n\n"
+                    f"**AUTHENTICATION REQUIRED**\n\n"
                     f"An administrator ({ctx.author.mention}) from **{ctx.guild.name}** has sent you an authentication "
                     f"link to link your Discord account with Alliance Auth.\n\n"
                 ),
@@ -263,10 +263,10 @@ class OnboardingCog(commands.Cog):
             )
 
             embed.add_field(
-                name="**👇 CLICK THE LINK BELOW TO GET STARTED 👇**",
+                name="**CLICK THE LINK BELOW TO GET STARTED**",
                 value=(
-                    f" [**🔗 CLICK HERE TO AUTHENTICATE**]({onboarding_url}) \n\n"
-                    f"⬆️ **Click the blue link above to get started** ⬆️"
+                    f"[**CLICK HERE TO AUTHENTICATE**]({onboarding_url})\n\n"
+                    f"**Click the blue link above to get started**"
                 ),
                 inline=False
             )
@@ -279,7 +279,7 @@ class OnboardingCog(commands.Cog):
 
                 # Confirm to admin
                 await ctx.respond(
-                    f"✅ Authentication link sent to {user.mention} via DM.",
+                    f"Authentication link sent to {user.mention} via DM.",
                     ephemeral=True
                 )
                 logger.info(
@@ -289,7 +289,7 @@ class OnboardingCog(commands.Cog):
 
             except discord.Forbidden:
                 await ctx.respond(
-                    f"❌ Could not send DM to {user.mention} - their DMs might be disabled.",
+                    f"Could not send DM to {user.mention} - their DMs might be disabled.",
                     ephemeral=True
                 )
                 logger.warning(
@@ -298,7 +298,7 @@ class OnboardingCog(commands.Cog):
                 )
             except discord.HTTPException as e:
                 await ctx.respond(
-                    f"❌ Failed to send DM to {user.mention}: {str(e)}",
+                    f"Failed to send DM to {user.mention}: {str(e)}",
                     ephemeral=True
                 )
                 logger.error(
@@ -308,7 +308,7 @@ class OnboardingCog(commands.Cog):
 
         except Exception as e:
             logger.error(f"Error in auth_user command for target {user.id}: {e}")
-            await ctx.respond("❌ An error occurred. Please try again later.", ephemeral=True)
+            await ctx.respond("An error occurred. Please try again later.", ephemeral=True)
 
     @admin_commands.command(name='add_orphans_to_autokick', guild_ids=bot_settings.get_all_servers())
     async def add_orphans_to_autokick(self, ctx):
@@ -320,7 +320,7 @@ class OnboardingCog(commands.Cog):
             return await ctx.respond("You do not have permission to use this command", ephemeral=True)
 
         if not DISCORD_ONBOARDING_AUTO_KICK_ENABLED:
-            return await ctx.respond("❌ Auto-kick feature is not enabled", ephemeral=True)
+            return await ctx.respond("Auto-kick feature is not enabled", ephemeral=True)
 
         await ctx.defer()
 
@@ -404,23 +404,23 @@ class OnboardingCog(commands.Cog):
 
             # Create response embed
             embed = Embed(
-                title="🚫 Auto-Kick Schedule Updated",
+                title="Auto-Kick Schedule Updated",
                 description="Added unlinked Discord users to auto-kick timeline",
                 color=Color.orange()
             )
             
-            embed.add_field(name="✅ Added to Timeline", value=str(added_count), inline=True)
-            embed.add_field(name="📅 Already Scheduled", value=str(already_scheduled_count), inline=True)
-            embed.add_field(name="🔗 Already Linked", value=str(linked_count), inline=True)
-            embed.add_field(name="🤖 Bots Skipped", value=str(bot_count), inline=True)
-            embed.add_field(name="👥 Total Members", value=str(len(member_list)), inline=True)
-            embed.add_field(name="⚡ Status", value="Complete", inline=True)
+            embed.add_field(name="Added to Timeline", value=str(added_count), inline=True)
+            embed.add_field(name="Already Scheduled", value=str(already_scheduled_count), inline=True)
+            embed.add_field(name="Already Linked", value=str(linked_count), inline=True)
+            embed.add_field(name="Bots Skipped", value=str(bot_count), inline=True)
+            embed.add_field(name="Total Members", value=str(len(member_list)), inline=True)
+            embed.add_field(name="Status", value="Complete", inline=True)
 
             await ctx.respond(embed=embed)
 
         except Exception as e:
             logger.error(f"Error in add_orphans_to_autokick command: {e}")
-            await ctx.respond("❌ An error occurred while processing the command. Check logs for details.", ephemeral=True)
+            await ctx.respond("An error occurred while processing the command. Check logs for details.", ephemeral=True)
 
     @admin_commands.command(name='clear_autokick_timeline', guild_ids=bot_settings.get_all_servers()) 
     async def clear_autokick_timeline(self, ctx):
@@ -440,7 +440,7 @@ class OnboardingCog(commands.Cog):
 
             if total_count == 0:
                 embed = Embed(
-                    title="🟢 Auto-Kick Timeline",
+                    title="Auto-Kick Timeline",
                     description="Timeline is already empty - no active schedules found",
                     color=Color.green()
                 )
@@ -465,18 +465,18 @@ class OnboardingCog(commands.Cog):
 
             # Create response embed
             embed = Embed(
-                title="🗑️ Auto-Kick Timeline Purged",
+                title="Auto-Kick Timeline Purged",
                 description="All scheduled auto-kicks have been permanently deleted",
                 color=Color.red()
             )
             
-            embed.add_field(name="📊 Total Found", value=str(total_count), inline=True)
-            embed.add_field(name="🗑️ Deleted", value=str(deleted_count), inline=True)
-            embed.add_field(name="❌ Failed", value=str(total_count - deleted_count), inline=True)
+            embed.add_field(name="Total Found", value=str(total_count), inline=True)
+            embed.add_field(name="Deleted", value=str(deleted_count), inline=True)
+            embed.add_field(name="Failed", value=str(total_count - deleted_count), inline=True)
             
             if deleted_count > 0:
                 embed.add_field(
-                    name="ℹ️ Note", 
+                    name="Note", 
                     value="All auto-kick schedules have been permanently removed from the database. Users can still authenticate normally.",
                     inline=False
                 )
@@ -485,7 +485,7 @@ class OnboardingCog(commands.Cog):
 
         except Exception as e:
             logger.error(f"Error in clear_autokick_timeline command: {e}")
-            await ctx.respond("❌ An error occurred while clearing the timeline. Check logs for details.", ephemeral=True)
+            await ctx.respond("An error occurred while clearing the timeline. Check logs for details.", ephemeral=True)
 
     def _is_admin(self, member: discord.Member) -> bool:
         """Check if a member has admin permissions for this bot."""

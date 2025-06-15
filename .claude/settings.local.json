@@ -9,7 +9,10 @@
       "Bash(black:*)",
       "Bash(pip3 install:*)",
       "Bash(find:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

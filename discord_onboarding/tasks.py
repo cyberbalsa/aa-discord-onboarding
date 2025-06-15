@@ -117,15 +117,15 @@ def send_onboarding_reminder(schedule_id):
 
         # Create reminder message  
         reminder_number = schedule.reminder_count + 1
-        message = f"**🔔 Authentication Reminder #{reminder_number} 🔔**"
+        message = f"**Authentication Reminder #{reminder_number}**"
         
         # Get guild name for better context (we'll need to use a bot task for this)
         guild_name = "the Discord server"  # Fallback if we can't get the guild name
         
         embed_data = {
-            "title": f"⏰ Authentication Reminder #{reminder_number} ⏰",
+            "title": f"Authentication Reminder #{reminder_number}",
             "description": (
-                f"# 🔐 **ACTION REQUIRED** 🔐\n\n"
+                f"**ACTION REQUIRED**\n\n"
                 f"You still need to authenticate your Discord account to maintain access to **{guild_name}**.\n\n"
                 f"**Time remaining:** You have until **{schedule.kick_scheduled_at.strftime('%Y-%m-%d %H:%M UTC')}** "
                 f"to complete authentication, or you will be automatically removed from the server.\n\n"
@@ -133,12 +133,12 @@ def send_onboarding_reminder(schedule_id):
             "color": 0xFF6B35,  # Orange color for warning
             "fields": [
                 {
-                    "name": "**👇 CLICK THE LINK BELOW TO AUTHENTICATE NOW 👇**",
-                    "value": f"🚀 [**🔗 AUTHENTICATE NOW**]({onboarding_url}) 🚀\n\n",
+                    "name": "**CLICK THE LINK BELOW TO AUTHENTICATE NOW**",
+                    "value": f"[**AUTHENTICATE NOW**]({onboarding_url})\n\n",
                     "inline": False
                 },
                 {
-                    "name": "❓ What happens if I don't authenticate?",
+                    "name": "What happens if I don't authenticate?",
                     "value": (
                         "• You will be automatically removed from the server\n"
                         "• You can rejoin anytime and authenticate then\n"
@@ -200,7 +200,7 @@ def auto_kick_unauthenticated_user(schedule_id):
         guild_name = "the Discord server"  # Fallback if we can't get guild name
         
         goodbye_embed = {
-            "title": f"👋 Goodbye from {guild_name}",
+            "title": f"Goodbye from {guild_name}",
             "description": DISCORD_ONBOARDING_KICK_GOODBYE_MESSAGE,
             "color": 0xFF0000,  # Red color
             "footer": {
@@ -264,7 +264,7 @@ def log_auto_kick(schedule_id):
 
     try:
         log_embed = {
-            "title": "🚪 Auto-Kick Event",
+            "title": "Auto-Kick Event",
             "description": f"User **{schedule.discord_username}** was automatically removed from the server",
             "color": 0x808080,  # Gray color
             "fields": [
@@ -329,7 +329,7 @@ def log_successful_authentication(token_id):
             main_character_name = token.user.profile.main_character.character_name
 
         success_embed = {
-            "title": "✅ Successful Authentication",
+            "title": "Successful Authentication",
             "description": f"User **{token.discord_username}** successfully linked their Discord account",
             "color": 0x00FF00,  # Green color
             "fields": [
@@ -360,7 +360,7 @@ def log_successful_authentication(token_id):
                 },
                 {
                     "name": "Status",
-                    "value": "✅ Successfully Linked",
+                    "value": "Successfully Linked",
                     "inline": True
                 }
             ],
