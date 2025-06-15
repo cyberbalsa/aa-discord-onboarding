@@ -76,10 +76,10 @@ class OnboardingCog(commands.Cog):
 
             # Create embed for DM
             embed = Embed(
-                title="🎉 Welcome to our Discord Server! 🎉",
+                title=f"🎉 Welcome to {member.guild.name}! 🎉",
                 description=(
                     "# 🔐 **AUTHENTICATION REQUIRED** 🔐\n\n"
-                    "To gain access to all channels and features, you need to link "
+                    f"To gain access to all channels and features in **{member.guild.name}**, you need to link "
                     "your Discord account with our Alliance Auth system.\n\n"
                 ),
                 color=Color.gold()
@@ -107,7 +107,7 @@ class OnboardingCog(commands.Cog):
             embed.add_field(
                 name="💬 Need Help?",
                 value=(
-                    "If you have any issues, please contact an administrator or use the "
+                    f"If you have any issues with {member.guild.name} authentication, please contact an administrator or use the "
                     "`/bind` command to get a new authentication link."
                 ),
                 inline=False
@@ -253,10 +253,10 @@ class OnboardingCog(commands.Cog):
 
             # Create embed for DM to target user
             embed = Embed(
-                title="🛡️ Admin Authentication Request 🛡️",
+                title=f"🛡️ {ctx.guild.name} Admin Authentication Request 🛡️",
                 description=(
                     f"# 🔐 **AUTHENTICATION REQUIRED** 🔐\n\n"
-                    f"An administrator ({ctx.author.mention}) has sent you an authentication "
+                    f"An administrator ({ctx.author.mention}) from **{ctx.guild.name}** has sent you an authentication "
                     f"link to link your Discord account with Alliance Auth.\n\n"
                 ),
                 color=Color.orange()

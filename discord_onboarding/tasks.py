@@ -115,15 +115,18 @@ def send_onboarding_reminder(schedule_id):
         base_url = DISCORD_ONBOARDING_BASE_URL or get_site_url()
         onboarding_url = f"{base_url}/discord-onboarding/start/{token.token}/"
 
-        # Create reminder message
+        # Create reminder message  
         reminder_number = schedule.reminder_count + 1
         message = f"**🔔 Authentication Reminder #{reminder_number} 🔔**"
         
+        # Get guild name for better context (we'll need to use a bot task for this)
+        guild_name = "the Discord server"  # Fallback if we can't get the guild name
+        
         embed_data = {
-            "title": "⏰ Authentication Reminder ⏰",
+            "title": f"⏰ Authentication Reminder #{reminder_number} ⏰",
             "description": (
                 f"# 🔐 **ACTION REQUIRED** 🔐\n\n"
-                f"You still need to authenticate your Discord account with our Alliance Auth system.\n\n"
+                f"You still need to authenticate your Discord account to maintain access to **{guild_name}**.\n\n"
                 f"**Time remaining:** You have until **{schedule.kick_scheduled_at.strftime('%Y-%m-%d %H:%M UTC')}** "
                 f"to complete authentication, or you will be automatically removed from the server.\n\n"
             ),
@@ -149,12 +152,12 @@ def send_onboarding_reminder(schedule_id):
             }
         }
 
-        # Send DM via Discord bot task system
+        # Send DM via Discord bot task system with guild context
         from aadiscordbot import tasks as discord_tasks
-        discord_tasks.send_direct_message_by_discord_id.delay(
-            schedule.discord_id,  # discord_user_id as positional
-            "",  # message as positional (empty since embed has content)
-            embed=embed_data  # embed as keyword
+        discord_tasks.run_task_function.delay(
+            function='discord_onboarding.bot_tasks.send_reminder_with_guild_context',
+            task_args=[schedule.id, onboarding_url, reminder_number, schedule.kick_scheduled_at.strftime('%Y-%m-%d %H:%M UTC')],
+            task_kwargs={}
         )
 
         # Mark reminder as sent
@@ -194,20 +197,22 @@ def auto_kick_unauthenticated_user(schedule_id):
 
     try:
         # Send goodbye DM first
+        guild_name = "the Discord server"  # Fallback if we can't get guild name
+        
         goodbye_embed = {
-            "title": "👋 Goodbye from our Discord Server",
+            "title": f"👋 Goodbye from {guild_name}",
             "description": DISCORD_ONBOARDING_KICK_GOODBYE_MESSAGE,
             "color": 0xFF0000,  # Red color
             "footer": {
-                "text": "You're welcome to rejoin anytime and complete authentication then!"
+                "text": f"You're welcome to rejoin {guild_name} anytime and complete authentication then!"
             }
         }
 
         from aadiscordbot import tasks as discord_tasks
-        discord_tasks.send_direct_message_by_discord_id.delay(
-            schedule.discord_id,  # discord_user_id as positional
-            "",  # message as positional (empty since embed has content)
-            embed=goodbye_embed  # embed as keyword
+        discord_tasks.run_task_function.delay(
+            function='discord_onboarding.bot_tasks.send_goodbye_with_guild_context',
+            task_args=[schedule.id, DISCORD_ONBOARDING_KICK_GOODBYE_MESSAGE],
+            task_kwargs={}
         )
 
         # Kick user from guild
