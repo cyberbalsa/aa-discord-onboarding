@@ -4,13 +4,16 @@ import logging
 
 from django.contrib.auth.decorators import login_required, permission_required
 from django.http import HttpResponseRedirect
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
 
 from allianceauth.services.modules.discord.models import DiscordUser
 
 from .models import OnboardingToken
+from .app_settings import DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +49,17 @@ def onboarding_start(request, token):
 
     # Store the onboarding token in session for the callback
     request.session['onboarding_token'] = token
+    
+    # Set session flag to bypass email verification if configured
+    if DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION:
+        request.session['discord_onboarding_bypass_email'] = True
 
-    # Redirect to Alliance Auth's built-in SSO login with our callback
+    # Redirect to our custom SSO login that handles email bypass
     next_url = reverse('discord_onboarding:callback')
-    sso_login_url = reverse('auth_sso_login')
+    if DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION:
+        sso_login_url = reverse('discord_onboarding:sso_login')
+    else:
+        sso_login_url = reverse('auth_sso_login')
     return HttpResponseRedirect(f"{sso_login_url}?next={next_url}")
 
 
@@ -119,8 +129,10 @@ def onboarding_callback(request):
         onboarding_token.user = user
         onboarding_token.save()
 
-        # Clear the onboarding token from session
+        # Clear the onboarding token and bypass flag from session
         del request.session['onboarding_token']
+        if 'discord_onboarding_bypass_email' in request.session:
+            del request.session['discord_onboarding_bypass_email']
 
         # Get main character name for display
         main_character = None
@@ -139,3 +151,55 @@ def onboarding_callback(request):
             'error_title': _('Authentication Error'),
             'error_message': _('An error occurred during authentication. Please try again.'),
         })
+
+
+# Custom SSO login view for Discord onboarding with email bypass
+from esi.decorators import token_required
+from django.conf import settings
+from allianceauth.authentication.views import sso_login as base_sso_login
+from django.contrib.auth.models import User
+
+
+@token_required(new=True, scopes=settings.LOGIN_TOKEN_SCOPES)
+def discord_onboarding_sso_login(request, token):
+    """Custom SSO login that temporarily disables email verification for Discord onboarding."""
+    
+    # Temporarily override the REGISTRATION_VERIFY_EMAIL setting
+    original_setting = getattr(settings, 'REGISTRATION_VERIFY_EMAIL', True)
+    
+    # Check if this is a Discord onboarding request
+    if request.session.get('discord_onboarding_bypass_email', False):
+        # Temporarily disable email verification
+        settings.REGISTRATION_VERIFY_EMAIL = False
+    
+    try:
+        # Use the original sso_login logic
+        user = authenticate(token=token)
+        if user:
+            token.user = user
+            from esi.models import Token
+            if Token.objects.exclude(pk=token.pk).equivalent_to(token).require_valid().exists():
+                token.delete()
+            else:
+                token.save()
+            if user.is_active:
+                login(request, user)
+                return redirect(request.POST.get('next', request.GET.get('next', 'authentication:dashboard')))
+            elif not user.email:
+                # Store the new user PK in the session to enable us to identify the registering user
+                request.session['registration_uid'] = user.pk
+                # Go to registration with email bypass enabled
+                return redirect('registration_register')
+        # Logging in with an alt is not allowed due to security concerns.
+        token.delete()
+        messages.error(
+            request,
+            _(
+                'Unable to authenticate as the selected character. '
+                'Please log in with the main character associated with this account.'
+            )
+        )
+        return redirect(settings.LOGIN_URL)
+    finally:
+        # Always restore the original setting
+        settings.REGISTRATION_VERIFY_EMAIL = original_setting

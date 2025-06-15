@@ -8,7 +8,8 @@
       "Bash(bandit:*)",
       "Bash(black:*)",
       "Bash(pip3 install:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }
