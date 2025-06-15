@@ -9,8 +9,12 @@ from discord.ext import commands
 
 from aadiscordbot.app_settings import get_site_url
 
-from ..app_settings import DISCORD_ONBOARDING_ADMIN_ROLES, DISCORD_ONBOARDING_BASE_URL
-from ..models import OnboardingToken
+from ..app_settings import (
+    DISCORD_ONBOARDING_ADMIN_ROLES, 
+    DISCORD_ONBOARDING_BASE_URL,
+    DISCORD_ONBOARDING_AUTO_KICK_ENABLED
+)
+from ..models import OnboardingToken, AutoKickSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +46,20 @@ class OnboardingCog(commands.Cog):
                 discord_id=member.id,
                 discord_username=username
             )
+
+            # Create auto-kick schedule if enabled
+            if DISCORD_ONBOARDING_AUTO_KICK_ENABLED:
+                from django.utils import timezone
+                try:
+                    AutoKickSchedule.objects.create(
+                        discord_id=member.id,
+                        discord_username=username,
+                        guild_id=member.guild.id,
+                        joined_at=timezone.now()
+                    )
+                    logger.info(f"Created auto-kick schedule for {username} (ID: {member.id})")
+                except Exception as e:
+                    logger.error(f"Failed to create auto-kick schedule for {username}: {e}")
 
             # Create onboarding URL
             base_url = DISCORD_ONBOARDING_BASE_URL or get_site_url()
@@ -160,16 +178,14 @@ class OnboardingCog(commands.Cog):
                 title="🔗 Your Personal Authentication Link",
                 description=(
                     "# 🔐 **AUTHENTICATION LINK READY** 🔐\n\n"
-                    "**👇 CLICK THE LINK BELOW TO AUTHENTICATE 👇**"
                 ),
                 color=Color.green()
             )
 
             embed.add_field(
-                name="🚀 **YOUR AUTHENTICATION LINK** 🚀",
+                name="**👇 CLICK THE LINK BELOW TO AUTHENTICATE 👇**",
                 value=(
-                    f"## 👆 [**🔗 CLICK HERE TO AUTHENTICATE**]({onboarding_url}) 👆\n\n"
-                    f"⬆️ **Click the blue link above** ⬆️"
+                    f"🚀 [**🔗 CLICK HERE TO AUTHENTICATE**]({onboarding_url}) 🚀\n\n"
                 ),
                 inline=False
             )
@@ -233,15 +249,14 @@ class OnboardingCog(commands.Cog):
                     f"# 🔐 **AUTHENTICATION REQUIRED** 🔐\n\n"
                     f"An administrator ({ctx.author.mention}) has sent you an authentication "
                     f"link to link your Discord account with Alliance Auth.\n\n"
-                    f"**👇 CLICK THE LINK BELOW TO GET STARTED 👇**"
                 ),
                 color=Color.orange()
             )
 
             embed.add_field(
-                name="🚀 **AUTHENTICATION LINK** 🚀",
+                name="**👇 CLICK THE LINK BELOW TO GET STARTED 👇**",
                 value=(
-                    f"## 👆 [**🔗 CLICK HERE TO AUTHENTICATE**]({onboarding_url}) 👆\n\n"
+                    f" [**🔗 CLICK HERE TO AUTHENTICATE**]({onboarding_url}) \n\n"
                     f"⬆️ **Click the blue link above to get started** ⬆️"
                 ),
                 inline=False

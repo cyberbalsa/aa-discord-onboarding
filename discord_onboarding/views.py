@@ -12,7 +12,7 @@ from django.contrib.auth import authenticate, login
 
 from allianceauth.services.modules.discord.models import DiscordUser
 
-from .models import OnboardingToken
+from .models import OnboardingToken, AutoKickSchedule
 from .app_settings import DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION
 
 logger = logging.getLogger(__name__)
@@ -134,10 +134,29 @@ def onboarding_callback(request):
         onboarding_token.user = user
         onboarding_token.save()
 
+        # Deactivate any auto-kick schedule for this user
+        try:
+            auto_kick_schedule = AutoKickSchedule.objects.filter(
+                discord_id=onboarding_token.discord_id,
+                is_active=True
+            ).first()
+            if auto_kick_schedule:
+                auto_kick_schedule.deactivate()
+                logger.info(f"Deactivated auto-kick schedule for authenticated user {onboarding_token.discord_username}")
+        except Exception as e:
+            logger.error(f"Error deactivating auto-kick schedule: {e}")
+
         # Clear the onboarding token and bypass flag from session
         del request.session['onboarding_token']
         if 'discord_onboarding_bypass_email' in request.session:
             del request.session['discord_onboarding_bypass_email']
+
+        # Trigger Discord group/role update
+        try:
+            from .tasks import process_completed_onboarding
+            process_completed_onboarding.delay(onboarding_token.id)
+        except Exception as e:
+            logger.error(f"Error triggering completed onboarding processing: {e}")
 
         # Get main character name for display
         main_character = None
