@@ -46,30 +46,26 @@ def activate_discord_onboarding_user(sender, instance, created, **kwargs):
     
     # If there are recent onboarding tokens, this might be a Discord onboarding user
     if recent_tokens.exists():
-        # Check for session-based flag (set during onboarding start)
-        onboarding_sessions = []
-        
-        # Check all cache keys that might indicate Discord onboarding
-        cache_keys = []
-        for i in range(1800, int(timezone.now().timestamp()) + 10):  # Check last 30 minutes of timestamps
-            cache_key = f"discord_onboarding_active_{i}"
-            if cache.get(cache_key):
-                cache_keys.append(cache_key)
-                onboarding_sessions.append(cache_key)
-        
-        logger.debug(f"Found {len(onboarding_sessions)} active onboarding cache keys: {cache_keys}")
-        
-        if onboarding_sessions:
-            logger.info(f"Activating user {instance.username} via Discord onboarding email bypass")
-            instance.is_active = True
-            instance.save(update_fields=['is_active'])
-            # Clean up the session flags
-            for session_key in onboarding_sessions:
-                cache.delete(session_key)
-        else:
-            # Fallback: if we have recent tokens but no cache flags, still activate
-            # This handles cases where cache might not be working properly
-            logger.info(f"Activating user {instance.username} via Discord onboarding email bypass (fallback - recent tokens found)")
+        # Check for a simple cache flag indicating recent Discord onboarding activity
+        try:
+            onboarding_active = cache.get('discord_onboarding_active', False)
+            logger.debug(f"Cache flag 'discord_onboarding_active' = {onboarding_active}")
+            
+            if onboarding_active:
+                logger.info(f"Activating user {instance.username} via Discord onboarding email bypass")
+                instance.is_active = True
+                instance.save(update_fields=['is_active'])
+                # Don't clear the flag immediately in case multiple users are onboarding
+            else:
+                # Fallback: if we have recent tokens but no cache flag, still activate
+                # This handles cases where cache might not be working properly
+                logger.info(f"Activating user {instance.username} via Discord onboarding email bypass (fallback - recent tokens found)")
+                instance.is_active = True
+                instance.save(update_fields=['is_active'])
+        except Exception as e:
+            logger.error(f"Error checking cache in signal handler: {e}")
+            # Fallback activation if cache fails
+            logger.info(f"Activating user {instance.username} via Discord onboarding email bypass (cache error fallback)")
             instance.is_active = True
             instance.save(update_fields=['is_active'])
 

@@ -54,12 +54,10 @@ def onboarding_start(request, token):
     if DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION:
         request.session['discord_onboarding_bypass_email'] = True
         
-        # Also set a cache flag for our signal handler to detect
+        # Set a simple cache flag for our signal handler to detect
         from django.core.cache import cache
-        import time
-        cache_key = f"discord_onboarding_active_{int(time.time())}"
-        cache.set(cache_key, True, timeout=600)  # 10 minute timeout
-        logger.debug(f"Set Discord onboarding cache flag: {cache_key}")
+        cache.set('discord_onboarding_active', True, timeout=600)  # 10 minute timeout
+        logger.debug("Set Discord onboarding cache flag: discord_onboarding_active")
 
     # Redirect to our custom SSO login that handles email bypass
     next_url = reverse('discord_onboarding:callback')
