@@ -59,6 +59,7 @@ def onboarding_start(request, token):
         import time
         cache_key = f"discord_onboarding_active_{int(time.time())}"
         cache.set(cache_key, True, timeout=600)  # 10 minute timeout
+        logger.debug(f"Set Discord onboarding cache flag: {cache_key}")
 
     # Redirect to our custom SSO login that handles email bypass
     next_url = reverse('discord_onboarding:callback')
