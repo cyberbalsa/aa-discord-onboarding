@@ -44,37 +44,30 @@ def onboarding_start(request, token):
             ),
         })
 
-    # Redirect to ESI login with our callback
-    from esi.clients import esi_client_factory
+    # Store the onboarding token in session for the callback
+    request.session['onboarding_token'] = token
 
-    # Build the callback URL
-    callback_url = request.build_absolute_uri(reverse('discord_onboarding:callback'))
-
-    # Create ESI client and get authorization URL
-    client = esi_client_factory(callback_url=callback_url)
-    auth_url = client.auth_uri(
-        scopes=['esi-characters.read_contacts.v1'],  # Basic scope for character identification
-        state=token  # Pass token as state parameter
-    )
-
-    return HttpResponseRedirect(auth_url)
+    # Redirect to Alliance Auth's built-in SSO login with our callback
+    next_url = reverse('discord_onboarding:callback')
+    sso_login_url = reverse('auth_sso_login')
+    return HttpResponseRedirect(f"{sso_login_url}?next={next_url}")
 
 
+@login_required
 def onboarding_callback(request):
-    """Handle the callback after EVE SSO authentication."""
+    """Handle the callback after Alliance Auth SSO authentication."""
 
-    # Get authorization code and state from the callback
-    auth_code = request.GET.get('code')
-    state = request.GET.get('state')
-
-    if not auth_code or not state:
+    # Get the onboarding token from session
+    token = request.session.get('onboarding_token')
+    
+    if not token:
         return render(request, 'discord_onboarding/error.html', {
-            'error_title': _('Authentication Error'),
-            'error_message': _('Missing authentication parameters. Please try again.'),
+            'error_title': _('Invalid Session'),
+            'error_message': _('No onboarding token found in session. Please try again.'),
         })
 
     try:
-        onboarding_token = OnboardingToken.objects.get(token=state)
+        onboarding_token = OnboardingToken.objects.get(token=token)
     except OnboardingToken.DoesNotExist:
         return render(request, 'discord_onboarding/error.html', {
             'error_title': _('Invalid Token'),
@@ -91,43 +84,8 @@ def onboarding_callback(request):
         })
 
     try:
-        from esi.clients import esi_client_factory
-        from esi.models import Token
-        from django.contrib.auth import authenticate, login
-
-        # Build the callback URL
-        callback_url = request.build_absolute_uri(reverse('discord_onboarding:callback'))
-
-        # Create ESI client and exchange code for token
-        client = esi_client_factory(callback_url=callback_url)
-        esi_token = client.auth_code_to_token(auth_code)
-
-        # Create or get the token object
-        token = Token.objects.create(
-            access_token=esi_token['access_token'],
-            refresh_token=esi_token['refresh_token'],
-            user=None,  # Will be set by authenticate
-            character_id=esi_token['character_id'],
-            character_name=esi_token['character_name'],
-            character_owner_hash=esi_token['character_owner_hash'],
-            token_type=esi_token['token_type'],
-            expires_in=esi_token['expires_in']
-        )
-
-        # Authenticate user with the token
-        user = authenticate(token=token)
-
-        if not user:
-            return render(request, 'discord_onboarding/error.html', {
-                'error_title': _('Authentication Failed'),
-                'error_message': _(
-                    'Unable to authenticate with EVE Online. '
-                    'Please ensure you are logging in with your main character.'
-                ),
-            })
-
-        # Log the user in
-        login(request, user)
+        # User is already authenticated by Alliance Auth SSO
+        user = request.user
 
         # Check if user already has a Discord account
         if DiscordUser.objects.filter(user=user).exists():
@@ -160,6 +118,9 @@ def onboarding_callback(request):
         onboarding_token.used = True
         onboarding_token.user = user
         onboarding_token.save()
+
+        # Clear the onboarding token from session
+        del request.session['onboarding_token']
 
         # Get main character name for display
         main_character = None
