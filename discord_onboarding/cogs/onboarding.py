@@ -54,15 +54,14 @@ class OnboardingCog(commands.Cog):
                     "# 🔐 **AUTHENTICATION REQUIRED** 🔐\n\n"
                     "To gain access to all channels and features, you need to link "
                     "your Discord account with our Alliance Auth system.\n\n"
-                    "**👇 CLICK THE LINK BELOW TO GET STARTED 👇**"
                 ),
                 color=Color.gold()
             )
 
             embed.add_field(
-                name="🚀 **CLICK HERE TO GET AUTHENTICATED** 🚀",
+                name="**👇 CLICK THE LINK BELOW TO GET STARTED 👇**",
                 value=(
-                    f"## 👆 [**🔗 START AUTHENTICATION NOW**]({onboarding_url}) 👆\n\n"
+                    f"# 🚀 [**🔗 START AUTHENTICATION NOW**]({onboarding_url}) 🚀\n\n"
                     f"⬆️ **Click the blue link above to authenticate with EVE Online** ⬆️"
                 ),
                 inline=False
