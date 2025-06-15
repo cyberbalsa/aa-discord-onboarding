@@ -49,19 +49,21 @@ class OnboardingCog(commands.Cog):
 
             # Create embed for DM
             embed = Embed(
-                title="Welcome to our Discord Server!",
+                title="🎉 Welcome to our Discord Server! 🎉",
                 description=(
+                    "# 🔐 **AUTHENTICATION REQUIRED** 🔐\n\n"
                     "To gain access to all channels and features, you need to link "
-                    "your Discord account with our Alliance Auth system."
+                    "your Discord account with our Alliance Auth system.\n\n"
+                    "**👇 CLICK THE LINK BELOW TO GET STARTED 👇**"
                 ),
-                color=Color.blue()
+                color=Color.gold()
             )
 
             embed.add_field(
-                name="🚀 Get Started",
+                name="🚀 **CLICK HERE TO GET AUTHENTICATED** 🚀",
                 value=(
-                    f"Click the link below to authenticate with EVE Online and gain access:\n\n"
-                    f"[**Start Authentication Process**]({onboarding_url})"
+                    f"## 👆 [**🔗 START AUTHENTICATION NOW**]({onboarding_url}) 👆\n\n"
+                    f"⬆️ **Click the blue link above to authenticate with EVE Online** ⬆️"
                 ),
                 inline=False
             )
@@ -156,17 +158,20 @@ class OnboardingCog(commands.Cog):
 
             # Create embed for response
             embed = Embed(
-                title="🔗 Authentication Link",
+                title="🔗 Your Personal Authentication Link",
                 description=(
-                    "Click the link below to authenticate with EVE Online and "
-                    "link your Discord account:"
+                    "# 🔐 **AUTHENTICATION LINK READY** 🔐\n\n"
+                    "**👇 CLICK THE LINK BELOW TO AUTHENTICATE 👇**"
                 ),
                 color=Color.green()
             )
 
             embed.add_field(
-                name="🚀 Authenticate Now",
-                value=f"[**Click here to start authentication**]({onboarding_url})",
+                name="🚀 **YOUR AUTHENTICATION LINK** 🚀",
+                value=(
+                    f"## 👆 [**🔗 CLICK HERE TO AUTHENTICATE**]({onboarding_url}) 👆\n\n"
+                    f"⬆️ **Click the blue link above** ⬆️"
+                ),
                 inline=False
             )
 
@@ -224,17 +229,22 @@ class OnboardingCog(commands.Cog):
 
             # Create embed for DM to target user
             embed = Embed(
-                title="Authentication Request",
+                title="🛡️ Admin Authentication Request 🛡️",
                 description=(
+                    f"# 🔐 **AUTHENTICATION REQUIRED** 🔐\n\n"
                     f"An administrator ({ctx.author.mention}) has sent you an authentication "
-                    f"link to link your Discord account with Alliance Auth."
+                    f"link to link your Discord account with Alliance Auth.\n\n"
+                    f"**👇 CLICK THE LINK BELOW TO GET STARTED 👇**"
                 ),
-                color=Color.blue()
+                color=Color.orange()
             )
 
             embed.add_field(
-                name="🚀 Get Started",
-                value=f"[**Click here to authenticate**]({onboarding_url})",
+                name="🚀 **AUTHENTICATION LINK** 🚀",
+                value=(
+                    f"## 👆 [**🔗 CLICK HERE TO AUTHENTICATE**]({onboarding_url}) 👆\n\n"
+                    f"⬆️ **Click the blue link above to get started** ⬆️"
+                ),
                 inline=False
             )
 
