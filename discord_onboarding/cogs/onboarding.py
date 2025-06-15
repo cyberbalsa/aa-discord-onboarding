@@ -6,8 +6,11 @@ import discord
 from discord.colour import Color
 from discord.embeds import Embed
 from discord.ext import commands
+from discord.commands import SlashCommandGroup
 
 from aadiscordbot.app_settings import get_site_url
+from aadiscordbot import app_settings as bot_settings
+from allianceauth.services.modules.discord.models import DiscordUser
 
 from ..app_settings import (
     DISCORD_ONBOARDING_ADMIN_ROLES, 
@@ -27,6 +30,12 @@ class OnboardingCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         logger.info("OnboardingCog initialized")
+
+    admin_commands = SlashCommandGroup(
+        "onboarding-admin",
+        "Discord Onboarding Admin Commands",
+        guild_ids=bot_settings.get_all_servers()
+    )
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
@@ -300,6 +309,146 @@ class OnboardingCog(commands.Cog):
         except Exception as e:
             logger.error(f"Error in auth_user command for target {user.id}: {e}")
             await ctx.respond("❌ An error occurred. Please try again later.", ephemeral=True)
+
+    @admin_commands.command(name='add_orphans_to_autokick', guild_ids=bot_settings.get_all_servers())
+    async def add_orphans_to_autokick(self, ctx):
+        """
+        Add all unlinked Discord users in the server to the auto-kick timeline
+        """
+        # Check admin permissions using the same method as allianceauth-discordbot
+        if ctx.author.id not in bot_settings.get_admins():
+            return await ctx.respond("You do not have permission to use this command", ephemeral=True)
+
+        if not DISCORD_ONBOARDING_AUTO_KICK_ENABLED:
+            return await ctx.respond("❌ Auto-kick feature is not enabled", ephemeral=True)
+
+        await ctx.defer()
+
+        try:
+            # Get all Discord members in the guild
+            member_list = ctx.guild.members
+            added_count = 0
+            already_scheduled_count = 0
+            bot_count = 0
+            linked_count = 0
+
+            for member in member_list:
+                # Skip bots
+                if member.bot:
+                    bot_count += 1
+                    continue
+
+                # Check if user is already linked to Alliance Auth
+                try:
+                    DiscordUser.objects.get(uid=member.id)
+                    linked_count += 1
+                    continue
+                except DiscordUser.DoesNotExist:
+                    pass
+
+                # Check if user already has an active auto-kick schedule
+                if AutoKickSchedule.objects.filter(discord_id=member.id, is_active=True).exists():
+                    already_scheduled_count += 1
+                    continue
+
+                # Create auto-kick schedule for this orphaned user
+                try:
+                    from django.utils import timezone
+                    username = (
+                        f"{member.name}#{member.discriminator}"
+                        if member.discriminator != '0'
+                        else f"@{member.name}"
+                    )
+                    
+                    AutoKickSchedule.objects.create(
+                        discord_id=member.id,
+                        discord_username=username,
+                        guild_id=ctx.guild.id,
+                        joined_at=timezone.now()
+                    )
+                    added_count += 1
+                    logger.info(f"Added orphaned user {username} (ID: {member.id}) to auto-kick schedule")
+
+                except Exception as e:
+                    logger.error(f"Failed to add {member.name} to auto-kick schedule: {e}")
+
+            # Create response embed
+            embed = Embed(
+                title="🚫 Auto-Kick Schedule Updated",
+                description="Added unlinked Discord users to auto-kick timeline",
+                color=Color.orange()
+            )
+            
+            embed.add_field(name="✅ Added to Timeline", value=str(added_count), inline=True)
+            embed.add_field(name="📅 Already Scheduled", value=str(already_scheduled_count), inline=True)
+            embed.add_field(name="🔗 Already Linked", value=str(linked_count), inline=True)
+            embed.add_field(name="🤖 Bots Skipped", value=str(bot_count), inline=True)
+            embed.add_field(name="👥 Total Members", value=str(len(member_list)), inline=True)
+            embed.add_field(name="⚡ Status", value="Complete", inline=True)
+
+            await ctx.respond(embed=embed)
+
+        except Exception as e:
+            logger.error(f"Error in add_orphans_to_autokick command: {e}")
+            await ctx.respond("❌ An error occurred while processing the command. Check logs for details.", ephemeral=True)
+
+    @admin_commands.command(name='clear_autokick_timeline', guild_ids=bot_settings.get_all_servers()) 
+    async def clear_autokick_timeline(self, ctx):
+        """
+        Clear the entire auto-kick timeline (deactivate all scheduled kicks)
+        """
+        # Check admin permissions using the same method as allianceauth-discordbot
+        if ctx.author.id not in bot_settings.get_admins():
+            return await ctx.respond("You do not have permission to use this command", ephemeral=True)
+
+        await ctx.defer()
+
+        try:
+            # Get count of active schedules before clearing
+            active_schedules = AutoKickSchedule.objects.filter(is_active=True)
+            total_count = active_schedules.count()
+
+            if total_count == 0:
+                embed = Embed(
+                    title="🟢 Auto-Kick Timeline",
+                    description="Timeline is already empty - no active schedules found",
+                    color=Color.green()
+                )
+                return await ctx.respond(embed=embed)
+
+            # Deactivate all active schedules
+            deactivated_count = 0
+            for schedule in active_schedules:
+                try:
+                    schedule.deactivate()
+                    deactivated_count += 1
+                    logger.info(f"Deactivated auto-kick schedule for {schedule.discord_username} (ID: {schedule.discord_id})")
+                except Exception as e:
+                    logger.error(f"Failed to deactivate schedule for {schedule.discord_username}: {e}")
+
+            # Create response embed
+            embed = Embed(
+                title="🗑️ Auto-Kick Timeline Cleared",
+                description="All scheduled auto-kicks have been deactivated",
+                color=Color.red()
+            )
+            
+            embed.add_field(name="📊 Total Found", value=str(total_count), inline=True)
+            embed.add_field(name="✅ Deactivated", value=str(deactivated_count), inline=True)
+            embed.add_field(name="❌ Failed", value=str(total_count - deactivated_count), inline=True)
+            
+            if deactivated_count > 0:
+                embed.add_field(
+                    name="ℹ️ Note", 
+                    value="Users will no longer receive reminder DMs or be auto-kicked. They can still authenticate normally.",
+                    inline=False
+                )
+
+            await ctx.respond(embed=embed)
+
+        except Exception as e:
+            logger.error(f"Error in clear_autokick_timeline command: {e}")
+            await ctx.respond("❌ An error occurred while clearing the timeline. Check logs for details.", ephemeral=True)
 
     def _is_admin(self, member: discord.Member) -> bool:
         """Check if a member has admin permissions for this bot."""
