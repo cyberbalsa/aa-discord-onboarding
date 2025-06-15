@@ -53,6 +53,12 @@ def onboarding_start(request, token):
     # Set session flag to bypass email verification if configured
     if DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION:
         request.session['discord_onboarding_bypass_email'] = True
+        
+        # Also set a cache flag for our signal handler to detect
+        from django.core.cache import cache
+        import time
+        cache_key = f"discord_onboarding_active_{int(time.time())}"
+        cache.set(cache_key, True, timeout=600)  # 10 minute timeout
 
     # Redirect to our custom SSO login that handles email bypass
     next_url = reverse('discord_onboarding:callback')
@@ -182,13 +188,22 @@ def discord_onboarding_sso_login(request, token):
                 login(request, user)
                 return redirect(request.POST.get('next', request.GET.get('next', 'authentication:dashboard')))
             
-            # If user is not active and we have email bypass enabled, activate the user
+            # If user is not active, they should be activated by our signal handler if bypass is enabled
+            # Wait a moment for the signal to process, then check again
             elif bypass_email and DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION:
-                user.is_active = True
-                user.save()
-                login(request, user)
-                logger.info(f"Activated user {user.username} via Discord onboarding email bypass")
-                return redirect(request.POST.get('next', request.GET.get('next', 'authentication:dashboard')))
+                import time
+                time.sleep(0.1)  # Brief pause for signal processing
+                user.refresh_from_db()
+                if user.is_active:
+                    login(request, user)
+                    return redirect(request.POST.get('next', request.GET.get('next', 'authentication:dashboard')))
+                else:
+                    # Fallback: activate directly if signal didn't work
+                    user.is_active = True
+                    user.save()
+                    login(request, user)
+                    logger.info(f"Activated user {user.username} via Discord onboarding email bypass (fallback)")
+                    return redirect(request.POST.get('next', request.GET.get('next', 'authentication:dashboard')))
             
             # If user has no email, redirect to registration
             elif not user.email:
