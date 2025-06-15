@@ -22,6 +22,7 @@ class OnboardingCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        logger.info("OnboardingCog initialized")
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
@@ -298,4 +299,6 @@ class OnboardingCog(commands.Cog):
 
 def setup(bot):
     """Setup function called by the Discord bot."""
+    logger.info("Loading Discord Onboarding cog...")
     bot.add_cog(OnboardingCog(bot))
+    logger.info("Discord Onboarding cog loaded successfully!")
