@@ -13,7 +13,10 @@ from django.contrib.auth import authenticate, login
 from allianceauth.services.modules.discord.models import DiscordUser
 
 from .models import OnboardingToken, AutoKickSchedule
-from .app_settings import DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION
+from .app_settings import (
+    DISCORD_ONBOARDING_BYPASS_EMAIL_VERIFICATION,
+    DISCORD_ONBOARDING_KICK_LOG_CHANNEL_ID
+)
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +161,14 @@ def onboarding_callback(request):
         except Exception as e:
             logger.error(f"Error triggering completed onboarding processing: {e}")
 
+        # Send success notification to auto-kick log channel
+        if DISCORD_ONBOARDING_KICK_LOG_CHANNEL_ID:
+            try:
+                from .tasks import log_successful_authentication
+                log_successful_authentication.delay(onboarding_token.id)
+            except Exception as e:
+                logger.error(f"Error sending authentication success notification: {e}")
+
         # Get main character name for display
         main_character = None
         if user.profile.main_character:
@@ -277,6 +288,17 @@ def discord_onboarding_registration(request):
             
             login(request, user)
             logger.info(f"Registered and activated user {user.username} via Discord onboarding")
+            
+            # Send success notification if there's an onboarding token session
+            onboarding_token = request.session.get('onboarding_token')
+            if onboarding_token and DISCORD_ONBOARDING_KICK_LOG_CHANNEL_ID:
+                try:
+                    from .tasks import log_successful_authentication
+                    token_obj = OnboardingToken.objects.filter(token=onboarding_token).first()
+                    if token_obj:
+                        log_successful_authentication.delay(token_obj.id)
+                except Exception as e:
+                    logger.error(f"Error sending registration success notification: {e}")
             
             # Redirect to the callback URL
             return redirect(request.GET.get('next', 'authentication:dashboard'))

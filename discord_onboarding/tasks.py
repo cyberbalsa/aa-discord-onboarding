@@ -300,6 +300,84 @@ def log_auto_kick(schedule_id):
         logger.error(f"Error logging auto-kick event: {e}")
 
 
+@shared_task
+def log_successful_authentication(token_id):
+    """Log a successful authentication event to the configured channel."""
+
+    if not DISCORD_ONBOARDING_KICK_LOG_CHANNEL_ID:
+        return
+
+    try:
+        token = OnboardingToken.objects.get(id=token_id)
+    except OnboardingToken.DoesNotExist:
+        logger.warning(f"OnboardingToken {token_id} not found for success logging")
+        return
+
+    if not token.used or not token.user:
+        logger.warning(f"Token {token_id} is not properly completed for success logging")
+        return
+
+    try:
+        # Get main character name for display
+        main_character_name = "Unknown"
+        if hasattr(token.user, 'profile') and token.user.profile.main_character:
+            main_character_name = token.user.profile.main_character.character_name
+
+        success_embed = {
+            "title": "✅ Successful Authentication",
+            "description": f"User **{token.discord_username}** successfully linked their Discord account",
+            "color": 0x00FF00,  # Green color
+            "fields": [
+                {
+                    "name": "Discord User",
+                    "value": token.discord_username,
+                    "inline": True
+                },
+                {
+                    "name": "Discord ID",
+                    "value": str(token.discord_id),
+                    "inline": True
+                },
+                {
+                    "name": "Auth User",
+                    "value": token.user.username,
+                    "inline": True
+                },
+                {
+                    "name": "Main Character",
+                    "value": main_character_name,
+                    "inline": True
+                },
+                {
+                    "name": "Authenticated At",
+                    "value": token.created_at.strftime('%Y-%m-%d %H:%M UTC'),
+                    "inline": True
+                },
+                {
+                    "name": "Status",
+                    "value": "✅ Successfully Linked",
+                    "inline": True
+                }
+            ],
+            "footer": {
+                "text": "Discord Onboarding - Authentication Success"
+            },
+            "timestamp": token.created_at.isoformat()
+        }
+
+        from aadiscordbot import tasks as discord_tasks
+        discord_tasks.send_channel_message_by_discord_id.delay(
+            DISCORD_ONBOARDING_KICK_LOG_CHANNEL_ID,  # channel_id as positional  
+            "",  # message as positional (empty since embed has content)
+            embed=success_embed  # embed as keyword
+        )
+
+        logger.info(f"Logged successful authentication for {token.discord_username} to channel {DISCORD_ONBOARDING_KICK_LOG_CHANNEL_ID}")
+
+    except Exception as e:
+        logger.error(f"Error logging successful authentication: {e}")
+
+
 
 @shared_task
 def process_auto_kick_schedules():
