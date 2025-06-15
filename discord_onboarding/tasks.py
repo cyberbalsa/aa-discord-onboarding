@@ -97,6 +97,12 @@ def send_onboarding_reminder(schedule_id):
         logger.info(f"User {schedule.discord_username} has authenticated, deactivating schedule")
         schedule.deactivate()
         return
+    
+    # Also check if user is now linked to Alliance Auth (in case they authenticated via other means)
+    if DiscordUser.objects.filter(uid=schedule.discord_id).exists():
+        logger.info(f"User {schedule.discord_username} is now linked to Alliance Auth, deactivating schedule")
+        schedule.deactivate()
+        return
 
     # Create a fresh onboarding token
     try:
@@ -174,9 +180,15 @@ def auto_kick_unauthenticated_user(schedule_id):
         logger.warning(f"AutoKickSchedule {schedule_id} not found or inactive")
         return
 
-    # Final check if user has authenticated
+    # Final check if user has authenticated  
     if OnboardingToken.objects.filter(discord_id=schedule.discord_id, used=True).exists():
         logger.info(f"User {schedule.discord_username} authenticated before kick, deactivating schedule")
+        schedule.deactivate()
+        return
+    
+    # Also check if user is now linked to Alliance Auth (in case they authenticated via other means)
+    if DiscordUser.objects.filter(uid=schedule.discord_id).exists():
+        logger.info(f"User {schedule.discord_username} is now linked to Alliance Auth, deactivating schedule")
         schedule.deactivate()
         return
 

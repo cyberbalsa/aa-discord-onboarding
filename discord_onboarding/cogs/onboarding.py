@@ -332,6 +332,24 @@ class OnboardingCog(commands.Cog):
             bot_count = 0
             linked_count = 0
 
+            # Batch queries for efficiency
+            logger.info(f"Processing {len(member_list)} Discord members for auto-kick scheduling...")
+            
+            # Get all existing linked Discord user IDs in one query
+            member_ids = [member.id for member in member_list if not member.bot]
+            linked_user_ids = set(DiscordUser.objects.filter(uid__in=member_ids).values_list('uid', flat=True))
+            
+            # Get all existing active auto-kick schedule IDs in one query  
+            existing_schedule_ids = set(AutoKickSchedule.objects.filter(
+                discord_id__in=member_ids, 
+                is_active=True
+            ).values_list('discord_id', flat=True))
+
+            # Prepare batch insert data
+            schedules_to_create = []
+            from django.utils import timezone
+            current_time = timezone.now()
+
             for member in member_list:
                 # Skip bots
                 if member.bot:
@@ -339,38 +357,45 @@ class OnboardingCog(commands.Cog):
                     continue
 
                 # Check if user is already linked to Alliance Auth
-                try:
-                    DiscordUser.objects.get(uid=member.id)
+                if member.id in linked_user_ids:
                     linked_count += 1
                     continue
-                except DiscordUser.DoesNotExist:
-                    pass
 
                 # Check if user already has an active auto-kick schedule
-                if AutoKickSchedule.objects.filter(discord_id=member.id, is_active=True).exists():
+                if member.id in existing_schedule_ids:
                     already_scheduled_count += 1
                     continue
 
-                # Create auto-kick schedule for this orphaned user
-                try:
-                    from django.utils import timezone
-                    username = (
-                        f"{member.name}#{member.discriminator}"
-                        if member.discriminator != '0'
-                        else f"@{member.name}"
-                    )
-                    
-                    AutoKickSchedule.objects.create(
-                        discord_id=member.id,
-                        discord_username=username,
-                        guild_id=ctx.guild.id,
-                        joined_at=timezone.now()
-                    )
-                    added_count += 1
-                    logger.info(f"Added orphaned user {username} (ID: {member.id}) to auto-kick schedule")
+                # Prepare auto-kick schedule for this orphaned user
+                username = (
+                    f"{member.name}#{member.discriminator}"
+                    if member.discriminator != '0'
+                    else f"@{member.name}"
+                )
+                
+                schedules_to_create.append(AutoKickSchedule(
+                    discord_id=member.id,
+                    discord_username=username,
+                    guild_id=ctx.guild.id,
+                    joined_at=current_time
+                ))
 
+            # Batch create all schedules
+            if schedules_to_create:
+                try:
+                    # Use bulk_create for efficiency with large datasets
+                    AutoKickSchedule.objects.bulk_create(schedules_to_create, batch_size=1000)
+                    added_count = len(schedules_to_create)
+                    logger.info(f"Batch created {added_count} auto-kick schedules")
                 except Exception as e:
-                    logger.error(f"Failed to add {member.name} to auto-kick schedule: {e}")
+                    logger.error(f"Failed to batch create auto-kick schedules: {e}")
+                    # Fallback to individual creation if batch fails
+                    for schedule in schedules_to_create:
+                        try:
+                            schedule.save()
+                            added_count += 1
+                        except Exception as individual_error:
+                            logger.error(f"Failed to create schedule for {schedule.discord_username}: {individual_error}")
 
             # Create response embed
             embed = Embed(
